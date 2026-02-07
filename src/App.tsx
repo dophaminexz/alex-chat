@@ -6,6 +6,7 @@ import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import {
   generateResponse,
+  buildEffectiveSystemPrompt,
   DEFAULT_GOOGLE_MODELS,
   DEFAULT_OPENROUTER_MODELS,
   DEFAULT_GOOGLE_KEYS,
@@ -27,7 +28,7 @@ import {
 } from './api';
 
 // =============================================================================
-// SVG Icons — all custom, no emoji
+// SVG Icons
 // =============================================================================
 const I = ({ d, className = 'w-5 h-5', fill }: { d: string; className?: string; fill?: boolean }) => (
   <svg className={className} viewBox="0 0 24 24" fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
@@ -134,8 +135,17 @@ function IconShuffle({ className = 'w-4 h-4' }: { className?: string }) {
 function IconWand({ className = 'w-4 h-4' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" /><path d="m14 7 3 3" /><path d="M5 6v4" /><path d="M19 14v4" /><path d="M10 2v2" /><path d="M7 8H3" /><path d="M21 16h-4" /><path d="M11 3H9" /></svg>;
 }
+function IconBrain({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" /><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" /><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" /><path d="M17.599 6.5a3 3 0 0 0 .399-1.375" /><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" /><path d="M3.477 10.896a4 4 0 0 1 .585-.396" /><path d="M19.938 10.5a4 4 0 0 1 .585.396" /><path d="M6 18a4 4 0 0 1-1.967-.516" /><path d="M19.967 17.484A4 4 0 0 1 18 18" /></svg>;
+}
+function IconCalendar({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4" /><path d="M16 2v4" /><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M3 10h18" /></svg>;
+}
+function IconClockLg({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>;
+}
 
-// DophyAI Logo — tries /logo.png, /icon.png, then SVG fallback with logo colors
+// DophyAI Logo
 function DophyLogo({ className = 'w-8 h-8' }: { className?: string }) {
   const [fallback, setFallback] = useState(0);
   const paths = ['/logo.png', '/icon.png'];
@@ -182,6 +192,34 @@ function applyThemeToDOM(theme: ThemeConfig) {
 }
 
 // =============================================================================
+// Toggle Switch Component
+// =============================================================================
+function Toggle({ enabled, onChange, label, description, icon }: {
+  enabled: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  description?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!enabled)}
+      className="flex w-full items-center gap-3 rounded-xl bg-[var(--c-surface)] px-3 py-3 text-left transition-all hover:bg-[var(--c-surface-h)] active:scale-[0.99] touch-manipulation"
+    >
+      {icon && <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--c-accent-bg)] shrink-0">{icon}</div>}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-[var(--c-text)]">{label}</p>
+        {description && <p className="text-[11px] text-[var(--c-text3)] mt-0.5">{description}</p>}
+      </div>
+      <div className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${enabled ? 'bg-[var(--c-accent)]' : 'bg-[var(--c-border-h)]'}`}>
+        <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${enabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+      </div>
+    </button>
+  );
+}
+
+// =============================================================================
 // Constants & Persistence
 // =============================================================================
 const LS_CONFIG = 'dophy-config-v4';
@@ -201,6 +239,9 @@ function loadConfig(): AppConfig {
         googleModels: Array.isArray(p.googleModels) ? p.googleModels : [...DEFAULT_GOOGLE_MODELS],
         openrouterModels: Array.isArray(p.openrouterModels) ? p.openrouterModels : [...DEFAULT_OPENROUTER_MODELS],
         theme: (p.theme && p.theme.mode) ? { mode: p.theme.mode } : { ...DEFAULT_THEME },
+        includeTime: typeof p.includeTime === 'boolean' ? p.includeTime : false,
+        includeDate: typeof p.includeDate === 'boolean' ? p.includeDate : false,
+        memories: Array.isArray(p.memories) ? p.memories : [],
       };
     }
   } catch { /* ignore */ }
@@ -211,6 +252,9 @@ function loadConfig(): AppConfig {
     googleModels: [...DEFAULT_GOOGLE_MODELS],
     openrouterModels: [...DEFAULT_OPENROUTER_MODELS],
     theme: { ...DEFAULT_THEME },
+    includeTime: false,
+    includeDate: false,
+    memories: [],
   };
 }
 
@@ -377,6 +421,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
   const [newGoogleModel, setNewGoogleModel] = useState('');
   const [newOrModel, setNewOrModel] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [newMemory, setNewMemory] = useState('');
   const logsEndRef = useRef<HTMLDivElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
 
@@ -398,10 +443,19 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
 
   const updateTheme = (mode: ThemeMode) => { const t: ThemeConfig = { mode }; update({ theme: t }); applyThemeToDOM(t); };
 
+  const addMemory = () => {
+    const m = newMemory.trim();
+    if (m) {
+      update({ memories: [...config.memories, m] });
+      setNewMemory('');
+    }
+  };
+  const removeMemory = (i: number) => update({ memories: config.memories.filter((_, j) => j !== i) });
+
   const exportData = useCallback((type: 'all' | 'chats' | 'keys') => {
     const data: Record<string, unknown> = { exportedAt: new Date().toISOString(), version: 4, app: 'DophyAI' };
     if (type === 'all' || type === 'chats') data.sessions = sessions;
-    if (type === 'all' || type === 'keys') data.config = { googleKeys: config.googleKeys, openrouterKey: config.openrouterKey, systemPrompt: config.systemPrompt, googleModels: config.googleModels, openrouterModels: config.openrouterModels, theme: config.theme };
+    if (type === 'all' || type === 'keys') data.config = { googleKeys: config.googleKeys, openrouterKey: config.openrouterKey, systemPrompt: config.systemPrompt, googleModels: config.googleModels, openrouterModels: config.openrouterModels, theme: config.theme, includeTime: config.includeTime, includeDate: config.includeDate, memories: config.memories };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `dophy-${type}-${new Date().toISOString().slice(0, 10)}.json`;
@@ -429,6 +483,9 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
           if (Array.isArray(data.config.googleModels)) { const nm = data.config.googleModels.filter((m: string) => !config.googleModels.includes(m)); if (nm.length) { nc.googleModels = [...config.googleModels, ...nm]; imported.push(`${nm.length} Google models`); } }
           if (Array.isArray(data.config.openrouterModels)) { const nm = data.config.openrouterModels.filter((m: string) => !config.openrouterModels.includes(m)); if (nm.length) { nc.openrouterModels = [...config.openrouterModels, ...nm]; imported.push(`${nm.length} OR models`); } }
           if (data.config.theme && data.config.theme.mode) { nc.theme = { mode: data.config.theme.mode }; applyThemeToDOM(nc.theme); imported.push('theme'); }
+          if (typeof data.config.includeTime === 'boolean') { nc.includeTime = data.config.includeTime; }
+          if (typeof data.config.includeDate === 'boolean') { nc.includeDate = data.config.includeDate; }
+          if (Array.isArray(data.config.memories)) { const nm = data.config.memories.filter((m: string) => !config.memories.includes(m)); if (nm.length) { nc.memories = [...config.memories, ...nm]; imported.push(`${nm.length} memories`); } }
           setConfig(nc); saveConfig(nc);
         }
         setImportStatus(imported.length ? `Imported: ${imported.join(', ')}` : 'No new data');
@@ -579,13 +636,114 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
 
           {/* ====== Prompt ====== */}
           {tab === 'prompt' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-[var(--c-text)]">System Instructions</label>
-                <button onClick={() => update({ systemPrompt: DEFAULT_SYSTEM_PROMPT })} className="rounded-lg border border-[var(--c-border)] px-3 py-1.5 text-xs text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text2)] active:scale-95 touch-manipulation">Reset</button>
+            <div className="space-y-6">
+              {/* System Prompt */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-semibold text-[var(--c-text)]">System Instructions</label>
+                  <button onClick={() => update({ systemPrompt: DEFAULT_SYSTEM_PROMPT })} className="rounded-lg border border-[var(--c-border)] px-3 py-1.5 text-xs text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text2)] active:scale-95 touch-manipulation">Reset</button>
+                </div>
+                <textarea value={config.systemPrompt} onChange={e => update({ systemPrompt: e.target.value })} rows={10} className="w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-input-bg)] p-3 sm:p-4 text-sm leading-relaxed text-[var(--c-text)] outline-none focus:border-[var(--c-accent-border)] resize-none font-mono" />
+                <p className="mt-1 text-xs text-[var(--c-text3)]">Sent with every request to define AI behavior.</p>
               </div>
-              <textarea value={config.systemPrompt} onChange={e => update({ systemPrompt: e.target.value })} rows={16} className="w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-input-bg)] p-3 sm:p-4 text-sm leading-relaxed text-[var(--c-text)] outline-none focus:border-[var(--c-accent-border)] resize-none font-mono" />
-              <p className="text-xs text-[var(--c-text3)]">Sent with every request to define AI behavior.</p>
+
+              <div className="border-t border-[var(--c-border)]" />
+
+              {/* Context: Date & Time Toggles */}
+              <div>
+                <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]">
+                  <IconClockLg className="w-4 h-4 text-[var(--c-accent-t)]" />
+                  Context
+                </label>
+                <p className="text-xs text-[var(--c-text3)] mb-3">What the model will know about you and the world.</p>
+                <div className="space-y-2">
+                  <Toggle
+                    enabled={config.includeDate}
+                    onChange={(v) => update({ includeDate: v })}
+                    label="Current Date"
+                    description="Model will know today's date and day of week"
+                    icon={<IconCalendar className="w-4 h-4 text-[var(--c-accent-t)]" />}
+                  />
+                  <Toggle
+                    enabled={config.includeTime}
+                    onChange={(v) => update({ includeTime: v })}
+                    label="Current Time"
+                    description="Model will know the current time"
+                    icon={<IconClockLg className="w-4 h-4 text-[var(--c-accent-t)]" />}
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-[var(--c-border)]" />
+
+              {/* Memory */}
+              <div>
+                <label className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]">
+                  <IconBrain className="w-4 h-4 text-violet-400" />
+                  Memory
+                  {config.memories.length > 0 && (
+                    <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-xs text-violet-400">{config.memories.length}</span>
+                  )}
+                </label>
+                <p className="text-xs text-[var(--c-text3)] mb-3">
+                  Facts about you that the model will remember in every conversation.
+                </p>
+
+                {config.memories.length === 0 ? (
+                  <div className="mb-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] px-4 py-6 text-center">
+                    <IconBrain className="w-8 h-8 text-[var(--c-text4)] mx-auto mb-2" />
+                    <p className="text-xs text-[var(--c-text3)]">No memories yet</p>
+                    <p className="text-[10px] text-[var(--c-text4)] mt-1">Add facts like your name, age, preferences, etc.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 mb-3">
+                    {config.memories.map((mem, i) => (
+                      <div key={i} className="group flex items-start gap-2 rounded-xl bg-[var(--c-surface)] px-3 py-2.5 transition-all hover:bg-[var(--c-surface-h)]">
+                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-violet-500/10">
+                          <span className="text-[10px] font-bold text-violet-400">{i + 1}</span>
+                        </div>
+                        <p className="flex-1 text-sm text-[var(--c-text2)] leading-snug break-words">{mem}</p>
+                        <button
+                          onClick={() => removeMemory(i)}
+                          className="shrink-0 rounded-md p-1.5 text-[var(--c-text4)] transition-all hover:bg-red-500/15 hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100 active:scale-95 touch-manipulation"
+                          title="Remove memory"
+                        >
+                          <IconTrash className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMemory}
+                    onChange={e => setNewMemory(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addMemory()}
+                    placeholder="e.g. Мне 19 лет, я Андрей"
+                    className="flex-1 rounded-lg border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 py-2.5 text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none focus:border-[var(--c-accent-border)]"
+                  />
+                  <button
+                    onClick={addMemory}
+                    disabled={!newMemory.trim()}
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/20 px-3 py-2.5 text-sm font-medium text-violet-300 hover:bg-violet-500/30 disabled:opacity-30 active:scale-95 touch-manipulation"
+                  >
+                    <IconPlus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
+
+                {config.memories.length > 0 && (
+                  <button
+                    onClick={() => { if (confirm('Clear all memories?')) update({ memories: [] }); }}
+                    className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 active:scale-95 touch-manipulation"
+                  >
+                    <IconTrash className="w-3 h-3" />
+                    Clear all memories
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -599,7 +757,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
                 <div className="space-y-2">
                   <button onClick={() => exportData('all')} className="flex w-full items-center gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] px-4 py-3 text-sm text-[var(--c-text2)] transition-all hover:border-[var(--c-accent-border)] hover:bg-[var(--c-accent-bg)] active:scale-[0.98] touch-manipulation">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--c-accent-bg)] shrink-0"><IconDownload className="w-4 h-4 text-[var(--c-accent-t)]" /></div>
-                    <div className="text-left min-w-0"><p className="font-medium text-[var(--c-text)]">Full Backup</p><p className="text-xs text-[var(--c-text3)] truncate">{sessions.length} chats · {config.googleKeys.length} keys · {config.googleModels.length + config.openrouterModels.length} models</p></div>
+                    <div className="text-left min-w-0"><p className="font-medium text-[var(--c-text)]">Full Backup</p><p className="text-xs text-[var(--c-text3)] truncate">{sessions.length} chats · {config.googleKeys.length} keys · {config.memories.length} memories</p></div>
                   </button>
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => exportData('chats')} className="flex items-center gap-2 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] px-3 py-2.5 text-xs font-medium text-[var(--c-text3)] hover:bg-[var(--c-surface-h)] hover:text-[var(--c-text2)] active:scale-[0.98] touch-manipulation"><IconChat className="w-3.5 h-3.5" /> Chats only</button>
@@ -619,7 +777,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-red-400"><IconTrash className="w-4 h-4" /> Danger Zone</h3>
                 <div className="space-y-2">
                   <button onClick={() => { if (confirm('Delete ALL chats?')) { setSessions([]); saveSessions([]); setActiveSessionId(null); saveActiveId(null); setImportStatus('All chats deleted'); setTimeout(() => setImportStatus(null), 3000); } }} className="flex w-full items-center gap-3 rounded-xl border border-red-500/10 bg-red-500/5 px-4 py-3 text-sm text-red-400 hover:border-red-500/30 hover:bg-red-500/10 active:scale-[0.98] touch-manipulation"><IconTrash className="w-4 h-4" />Delete all chats <span className="ml-auto text-xs opacity-60">{sessions.length}</span></button>
-                  <button onClick={() => { if (confirm('Reset ALL settings?')) { const def: AppConfig = { googleKeys: [], openrouterKey: '', systemPrompt: DEFAULT_SYSTEM_PROMPT, googleModels: [...DEFAULT_GOOGLE_MODELS], openrouterModels: [...DEFAULT_OPENROUTER_MODELS], theme: { ...DEFAULT_THEME } }; setConfig(def); saveConfig(def); applyThemeToDOM(def.theme); setImportStatus('Settings reset'); setTimeout(() => setImportStatus(null), 3000); } }} className="flex w-full items-center gap-3 rounded-xl border border-amber-500/10 bg-amber-500/5 px-4 py-3 text-sm text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 active:scale-[0.98] touch-manipulation"><IconSettings className="w-4 h-4" />Reset all settings</button>
+                  <button onClick={() => { if (confirm('Reset ALL settings?')) { const def: AppConfig = { googleKeys: [], openrouterKey: '', systemPrompt: DEFAULT_SYSTEM_PROMPT, googleModels: [...DEFAULT_GOOGLE_MODELS], openrouterModels: [...DEFAULT_OPENROUTER_MODELS], theme: { ...DEFAULT_THEME }, includeTime: false, includeDate: false, memories: [] }; setConfig(def); saveConfig(def); applyThemeToDOM(def.theme); setImportStatus('Settings reset'); setTimeout(() => setImportStatus(null), 3000); } }} className="flex w-full items-center gap-3 rounded-xl border border-amber-500/10 bg-amber-500/5 px-4 py-3 text-sm text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 active:scale-[0.98] touch-manipulation"><IconSettings className="w-4 h-4" />Reset all settings</button>
                 </div>
               </div>
             </div>
@@ -651,7 +809,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
 }
 
 // =============================================================================
-// Auto Mode Button in sidebar
+// Auto Mode Items
 // =============================================================================
 const AUTO_ITEMS = [
   { key: 'auto-gemini-flash', icon: IconZap, color: 'amber', bg: 'bg-amber-500/15', activeText: 'text-amber-300', iconActive: 'text-amber-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-amber-500/10', activeBorder: 'border-amber-500/20' },
@@ -688,14 +846,12 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
     <>
       <div className={`fixed inset-0 z-30 bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`} onClick={onClose} />
       <aside className={`fixed left-0 top-0 z-30 flex h-full w-[85vw] max-w-[300px] flex-col border-r border-[var(--c-border)] bg-[var(--c-bg2)] transition-transform duration-300 ease-out lg:relative lg:w-72 lg:max-w-none lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        {/* Header with logo */}
         <div className="flex items-center gap-3 border-b border-[var(--c-border)] px-4 sm:px-5 py-3 sm:py-4 sidebar-safe-top">
           <DophyLogo className="w-8 h-8 shrink-0" />
           <span className="text-base font-semibold text-[var(--c-text)] tracking-tight">DophyAI</span>
           <button onClick={onClose} className="ml-auto rounded-lg p-2 text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text)] lg:hidden active:scale-95 touch-manipulation"><IconX className="w-4 h-4" /></button>
         </div>
 
-        {/* New Chat */}
         <div className="px-3 pt-3 pb-1">
           <button onClick={() => { onNewChat(); onClose(); }} className="flex w-full items-center gap-2.5 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] px-3.5 py-2.5 text-sm font-medium text-[var(--c-text2)] transition-all hover:border-[var(--c-accent-border)] hover:bg-[var(--c-accent-bg)] hover:text-[var(--c-text)] active:scale-[0.97] touch-manipulation">
             <IconPlus className="w-4 h-4" /> New Chat
@@ -703,7 +859,6 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-2 sidebar-safe-bottom">
-          {/* ============ AUTOMATIC Section ============ */}
           <div className="mb-1">
             <button onClick={() => setAutoOpen(!autoOpen)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--c-text3)] hover:text-[var(--c-text2)] touch-manipulation">
               <IconWand className="w-3.5 h-3.5" /> Automatic
@@ -742,7 +897,6 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
 
           <div className="mx-2 border-t border-[var(--c-border)]" />
 
-          {/* ============ Individual Models Section ============ */}
           <div className="mb-1 mt-1">
             <button onClick={() => setModelsOpen(!modelsOpen)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--c-text3)] hover:text-[var(--c-text2)] touch-manipulation">
               <IconChip className="w-3.5 h-3.5" /> Models
@@ -789,7 +943,6 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
 
           <div className="mx-2 my-1 border-t border-[var(--c-border)]" />
 
-          {/* ============ Chats Section ============ */}
           <div className="flex items-center gap-2 px-2 py-2">
             <IconChat className="w-3.5 h-3.5 text-[var(--c-text3)]" />
             <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--c-text3)]">Chats</span>
@@ -841,7 +994,6 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
           )}
         </div>
 
-        {/* Bottom bar */}
         <div className="border-t border-[var(--c-border)] px-4 py-3">
           <div className="flex items-center justify-center gap-2">
             <div className={`h-1.5 w-1.5 rounded-full ${getModelDotColor(selectedModel)}`} />
@@ -1016,7 +1168,11 @@ export function App() {
       const cur = sessions.find(s => s.id === sid);
       const hist = [...(cur?.messages || []), userMsg].slice(-20);
 
-      const result = await generateResponse(hist, selectedModel, config,
+      // Build effective config with system prompt enriched by time/date/memories
+      const effectiveSystemPrompt = buildEffectiveSystemPrompt(config);
+      const effectiveConfig = { ...config, systemPrompt: effectiveSystemPrompt };
+
+      const result = await generateResponse(hist, selectedModel, effectiveConfig,
         (chunk) => { setSessions(p => p.map(s => { if (s.id === sid) { const m = [...s.messages]; const l = m[m.length - 1]; if (l?.role === 'assistant') m[m.length - 1] = { ...l, content: l.content + chunk }; return { ...s, messages: m }; } return s; })); },
         () => { setSessions(p => p.map(s => { if (s.id === sid) { const m = [...s.messages]; const l = m[m.length - 1]; if (l?.role === 'assistant') m[m.length - 1] = { ...l, content: '' }; return { ...s, messages: m }; } return s; })); },
         addLog, ac.signal
@@ -1052,6 +1208,13 @@ export function App() {
             {isImageCapableModel(selectedModel) && <span className="hidden sm:inline rounded-md bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-violet-400 shrink-0">IMG</span>}
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
+            {(config.memories.length > 0 || config.includeDate || config.includeTime) && (
+              <div className="hidden sm:flex items-center gap-1 mr-1 rounded-md bg-violet-500/10 px-2 py-1">
+                {config.memories.length > 0 && <IconBrain className="w-3 h-3 text-violet-400" />}
+                {config.includeDate && <IconCalendar className="w-3 h-3 text-[var(--c-accent-t)]" />}
+                {config.includeTime && <IconClockLg className="w-3 h-3 text-[var(--c-accent-t)]" />}
+              </div>
+            )}
             <button onClick={handleNewChat} className="rounded-lg p-2 text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text)] active:scale-95 touch-manipulation" title="New chat"><IconNewChat className="w-[18px] h-[18px] sm:w-5 sm:h-5" /></button>
             <button onClick={() => setSettingsOpen(true)} className="rounded-lg p-2 text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text)] active:scale-95 touch-manipulation" title="Settings"><IconSettings className="w-[18px] h-[18px] sm:w-5 sm:h-5" /></button>
           </div>
@@ -1103,7 +1266,7 @@ export function App() {
           )}
         </div>
 
-        {/* Input */}
+        {/* Input — buttons aligned to same Y as input */}
         <div className="border-t border-[var(--c-border)] bg-[var(--c-bg)] input-safe-bottom">
           <div className="mx-auto max-w-3xl px-2 sm:px-4 py-2 sm:py-3">
             {attachedImages.length > 0 && (
@@ -1118,14 +1281,44 @@ export function App() {
             )}
             <form onSubmit={handleSend} className="flex items-end gap-1.5 sm:gap-2">
               <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="shrink-0 rounded-xl p-2.5 text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text2)] active:scale-95 touch-manipulation" title="Upload image"><IconImage className="w-5 h-5" /></button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="shrink-0 flex items-center justify-center rounded-xl border border-[var(--c-border)] bg-[var(--c-input-bg)] text-[var(--c-text3)] hover:bg-[var(--c-surface-h)] hover:text-[var(--c-text2)] active:scale-95 touch-manipulation w-[42px] h-[42px] sm:w-[46px] sm:h-[46px]"
+                title="Upload image"
+              >
+                <IconImage className="w-5 h-5" />
+              </button>
               <div className="relative flex-1">
-                <textarea ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} placeholder="Message DophyAI..." rows={1} className="w-full resize-none rounded-xl border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none transition-all focus:border-[var(--c-accent-border)] focus:ring-1 focus:ring-[var(--c-accent-glow)]" style={{ maxHeight: '160px' }} />
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Message DophyAI..."
+                  rows={1}
+                  className="w-full resize-none rounded-xl border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 sm:px-4 py-[9px] sm:py-[11px] text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none transition-all focus:border-[var(--c-accent-border)] focus:ring-1 focus:ring-[var(--c-accent-glow)]"
+                  style={{ maxHeight: '160px' }}
+                />
               </div>
               {isLoading ? (
-                <button type="button" onClick={handleStop} className="shrink-0 rounded-xl bg-red-500/20 p-2.5 text-red-400 hover:bg-red-500/30 active:scale-95 touch-manipulation" title="Stop"><IconStop /></button>
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="shrink-0 flex items-center justify-center rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 active:scale-95 touch-manipulation w-[42px] h-[42px] sm:w-[46px] sm:h-[46px]"
+                  title="Stop"
+                >
+                  <IconStop />
+                </button>
               ) : (
-                <button type="submit" disabled={!input.trim() && attachedImages.length === 0} className="shrink-0 rounded-xl bg-[var(--c-accent)] p-2.5 text-white transition-all hover:opacity-90 disabled:opacity-30 active:scale-95 touch-manipulation" title="Send"><IconSend /></button>
+                <button
+                  type="submit"
+                  disabled={!input.trim() && attachedImages.length === 0}
+                  className="shrink-0 flex items-center justify-center rounded-xl bg-[var(--c-accent)] text-white transition-all hover:opacity-90 disabled:opacity-30 active:scale-95 touch-manipulation w-[42px] h-[42px] sm:w-[46px] sm:h-[46px]"
+                  title="Send"
+                >
+                  <IconSend />
+                </button>
               )}
             </form>
             <p className="mt-1.5 text-center text-[10px] sm:text-[11px] text-[var(--c-text4)]">
