@@ -12,9 +12,12 @@ import {
   DEFAULT_OPENROUTER_KEY,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_THEME,
+  AUTO_MODES,
+  isAutoMode,
   isGoogleModel,
   isImageCapableModel,
   getModelShortName,
+  getModelDotColor,
   type ThemeMode,
   type ColorScheme,
   type ThemeConfig,
@@ -25,7 +28,7 @@ import {
 } from './api';
 
 // =============================================================================
-// SVG Icons (all)
+// SVG Icons — all custom, no emoji
 // =============================================================================
 const I = ({ d, className = 'w-5 h-5', fill }: { d: string; className?: string; fill?: boolean }) => (
   <svg className={className} viewBox="0 0 24 24" fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
@@ -56,9 +59,6 @@ function IconMenu({ className = 'w-5 h-5' }: { className?: string }) {
 }
 function IconImage({ className = 'w-5 h-5' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>;
-}
-function IconSparkle({ className = 'w-5 h-5' }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L13.09 8.26L18 6L15.74 10.91L22 12L15.74 13.09L18 18L13.09 15.74L12 22L10.91 15.74L6 18L8.26 13.09L2 12L8.26 10.91L6 6L10.91 8.26L12 2Z" /></svg>;
 }
 function IconUser({ className = 'w-5 h-5' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>;
@@ -127,6 +127,55 @@ function IconSwipe({ className = 'w-5 h-5' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8" /><path d="M10 19v-3.96 3.15" /><path d="M7 19h5" /><path d="m16 12 3 3-3 3" /><path d="M19 15H13" /></svg>;
 }
 
+// New icons for auto modes
+function IconZap({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z" /></svg>;
+}
+function IconCrown({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7z" /><path d="M5 16h14v2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-2z" /></svg>;
+}
+function IconShuffle({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H20" /><path d="m18 2 4 4-4 4" /><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" /><path d="M20 18h-2.4c-1.3 0-2.5-.6-3.3-1.7l-.6-.8" /><path d="m18 14 4 4-4 4" /></svg>;
+}
+function IconWand({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" /><path d="m14 7 3 3" /><path d="M5 6v4" /><path d="M19 14v4" /><path d="M10 2v2" /><path d="M7 8H3" /><path d="M21 16h-4" /><path d="M11 3H9" /></svg>;
+}
+
+// DophyAI Logo SVG (fallback when no logo.png)
+function DophyLogo({ className = 'w-8 h-8' }: { className?: string }) {
+  const [imgErr, setImgErr] = useState(false);
+  if (!imgErr) {
+    return <img src="/logo/logo.png" alt="DophyAI" className={`${className} rounded-lg object-contain`} onError={() => setImgErr(true)} />;
+  }
+  return (
+    <svg className={className} viewBox="0 0 40 40" fill="none">
+      <defs>
+        <linearGradient id="dl" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="var(--c-accent)" />
+          <stop offset="100%" stopColor="var(--c-accent-h)" />
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx="10" fill="url(#dl)" />
+      <text x="20" y="27" textAnchor="middle" fontFamily="Inter, system-ui" fontSize="22" fontWeight="700" fill="white">D</text>
+    </svg>
+  );
+}
+
+// DophyAI big logo for empty state
+function DophyLogoBig() {
+  const [imgErr, setImgErr] = useState(false);
+  if (!imgErr) {
+    return <img src="/logo/logo.png" alt="DophyAI" className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-contain" onError={() => setImgErr(true)} />;
+  }
+  return (
+    <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl ring-1 ring-[var(--c-accent-glow)]" style={{ background: 'linear-gradient(135deg, var(--c-accent), var(--c-accent-h))' }}>
+      <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-9 sm:h-9">
+        <text x="20" y="28" textAnchor="middle" fontFamily="Inter, system-ui" fontSize="24" fontWeight="800" fill="white">D</text>
+      </svg>
+    </div>
+  );
+}
+
 // =============================================================================
 // Theme Helpers
 // =============================================================================
@@ -140,7 +189,6 @@ const ACCENT_COLORS: Record<ColorScheme, { name: string; swatch: string }> = {
 function applyThemeToDOM(theme: ThemeConfig) {
   document.documentElement.setAttribute('data-mode', theme.mode);
   document.documentElement.setAttribute('data-accent', theme.scheme);
-  // Update meta theme-color
   const metaEls = document.querySelectorAll('meta[name="theme-color"]');
   metaEls.forEach(m => m.remove());
   const meta = document.createElement('meta');
@@ -152,10 +200,10 @@ function applyThemeToDOM(theme: ThemeConfig) {
 // =============================================================================
 // Constants & Persistence
 // =============================================================================
-const LS_CONFIG = 'gc-config-v2';
-const LS_SESSIONS = 'gc-sessions';
-const LS_ACTIVE = 'gc-active';
-const LS_MODEL = 'gc-model';
+const LS_CONFIG = 'dophy-config-v3';
+const LS_SESSIONS = 'dophy-sessions';
+const LS_ACTIVE = 'dophy-active';
+const LS_MODEL = 'dophy-model';
 
 function loadConfig(): AppConfig {
   try {
@@ -187,7 +235,7 @@ function loadSessions(): ChatSession[] { try { const r = localStorage.getItem(LS
 function saveSessions(s: ChatSession[]) { localStorage.setItem(LS_SESSIONS, JSON.stringify(s)); }
 function loadActiveId(): string | null { return localStorage.getItem(LS_ACTIVE); }
 function saveActiveId(id: string | null) { if (id) localStorage.setItem(LS_ACTIVE, id); else localStorage.removeItem(LS_ACTIVE); }
-function loadModel(): string { return localStorage.getItem(LS_MODEL) || DEFAULT_GOOGLE_MODELS[0]; }
+function loadModel(): string { return localStorage.getItem(LS_MODEL) || 'auto-gemini-flash'; }
 function saveModel(m: string) { localStorage.setItem(LS_MODEL, m); }
 
 function uid(): string { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -250,16 +298,8 @@ function useSwipe(onSwipeRight: () => void, onSwipeLeft: () => void) {
   const onTouchEnd = useCallback(() => {
     if (!touchStart.current || !touchEnd.current) return;
     const dx = touchEnd.current.x - touchStart.current.x;
-    const minSwipe = 80;
-
-    // Only trigger if started near left edge for right-swipe
-    if (dx > minSwipe && touchStart.current.x < 40) {
-      onSwipeRight();
-    }
-    // Left swipe from anywhere
-    if (dx < -minSwipe) {
-      onSwipeLeft();
-    }
+    if (dx > 80 && touchStart.current.x < 40) onSwipeRight();
+    if (dx < -80) onSwipeLeft();
     touchStart.current = null;
     touchEnd.current = null;
   }, [onSwipeRight, onSwipeLeft]);
@@ -375,12 +415,12 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
   const updateTheme = (t: ThemeConfig) => { update({ theme: t }); applyThemeToDOM(t); };
 
   const exportData = useCallback((type: 'all' | 'chats' | 'keys') => {
-    const data: Record<string, unknown> = { exportedAt: new Date().toISOString(), version: 2 };
+    const data: Record<string, unknown> = { exportedAt: new Date().toISOString(), version: 3, app: 'DophyAI' };
     if (type === 'all' || type === 'chats') data.sessions = sessions;
     if (type === 'all' || type === 'keys') data.config = { googleKeys: config.googleKeys, openrouterKey: config.openrouterKey, systemPrompt: config.systemPrompt, googleModels: config.googleModels, openrouterModels: config.openrouterModels, theme: config.theme };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `alex-chat-${type}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `dophy-${type}-${new Date().toISOString().slice(0, 10)}.json`;
     a.click(); URL.revokeObjectURL(a.href);
     setImportStatus(`Exported ${type}`); setTimeout(() => setImportStatus(null), 3000);
   }, [sessions, config]);
@@ -428,7 +468,6 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
     <>
       <div className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`} onClick={onClose} />
       <div className={`fixed inset-y-0 right-0 z-50 flex w-full sm:w-[28rem] sm:max-w-lg flex-col bg-[var(--c-bg)] border-l border-[var(--c-border)] shadow-2xl transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--c-border)] px-4 sm:px-6 py-3 sm:py-4 settings-safe-top">
           <div className="flex items-center gap-2.5">
             <IconSettings className="w-5 h-5 text-[var(--c-text2)]" />
@@ -437,7 +476,6 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
           <button onClick={onClose} className="rounded-lg p-2 text-[var(--c-text3)] transition-colors hover:bg-[var(--c-surface-h)] hover:text-[var(--c-text)] active:scale-95 touch-manipulation"><IconX /></button>
         </div>
 
-        {/* Tabs — scrollable horizontal */}
         <div className="flex overflow-x-auto border-b border-[var(--c-border)] px-2 sm:px-4 hide-scrollbar">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 sm:py-3 text-xs font-medium transition-colors touch-manipulation ${tab === t.id ? 'border-[var(--c-accent)] text-[var(--c-accent-t)]' : 'border-transparent text-[var(--c-text3)] hover:text-[var(--c-text2)]'}`}>
@@ -446,7 +484,6 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
           ))}
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 settings-safe-bottom">
           {/* ====== API Keys ====== */}
           {tab === 'keys' && (
@@ -459,7 +496,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
                 {config.googleKeys.length === 0 && (
                   <div className="mb-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400 flex items-start gap-2">
                     <IconWarning className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>No API keys. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="underline font-medium">aistudio.google.com</a></span>
+                    <span>No API keys. Get one free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="underline font-medium">aistudio.google.com</a></span>
                   </div>
                 )}
                 <div className="space-y-1.5">
@@ -572,7 +609,6 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
             <div className="space-y-6">
               <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
               {importStatus && <div className={`rounded-xl px-4 py-3 text-sm font-medium ${importStatus.includes('Error') ? 'bg-red-500/10 border border-red-500/20 text-red-400' : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'}`}>{importStatus}</div>}
-
               <div>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]"><IconDownload className="w-4 h-4 text-[var(--c-accent-t)]" /> Export</h3>
                 <div className="space-y-2">
@@ -590,7 +626,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
               <div>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]"><IconUpload className="w-4 h-4 text-emerald-400" /> Import</h3>
                 <button onClick={() => importFileRef.current?.click()} className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[var(--c-border)] bg-[var(--c-surface)] px-4 py-6 text-sm text-[var(--c-text3)] transition-all hover:border-[var(--c-accent-border)] hover:bg-[var(--c-accent-bg)] active:scale-[0.98] touch-manipulation">
-                  <IconUpload className="w-5 h-5" /><div className="text-left"><p className="font-medium text-[var(--c-text2)]">Choose JSON file</p><p className="text-xs">Merges data — no duplicates</p></div>
+                  <IconUpload className="w-5 h-5" /><div className="text-left"><p className="font-medium text-[var(--c-text2)]">Choose JSON file</p><p className="text-xs">Merges data without duplicates</p></div>
                 </button>
               </div>
               <div className="border-t border-[var(--c-border)]" />
@@ -630,6 +666,15 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
 }
 
 // =============================================================================
+// Auto Mode Button in sidebar
+// =============================================================================
+const AUTO_ITEMS = [
+  { key: 'auto-gemini-flash', icon: IconZap, color: 'amber', bg: 'bg-amber-500/15', activeText: 'text-amber-300', iconActive: 'text-amber-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-amber-500/10', activeBorder: 'border-amber-500/20' },
+  { key: 'auto-gemini-pro', icon: IconCrown, color: 'violet', bg: 'bg-violet-500/15', activeText: 'text-violet-300', iconActive: 'text-violet-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-violet-500/10', activeBorder: 'border-violet-500/20' },
+  { key: 'auto-openrouter', icon: IconShuffle, color: 'emerald', bg: 'bg-emerald-500/15', activeText: 'text-emerald-300', iconActive: 'text-emerald-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-emerald-500/10', activeBorder: 'border-emerald-500/20' },
+];
+
+// =============================================================================
 // Sidebar
 // =============================================================================
 interface SidebarProps {
@@ -643,7 +688,8 @@ interface SidebarProps {
 }
 
 function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions, activeSessionId, onSelectSession, onNewChat, onDeleteSession, onRenameSession, onClearAllSessions }: SidebarProps) {
-  const [modelsOpen, setModelsOpen] = useState(true);
+  const [autoOpen, setAutoOpen] = useState(true);
+  const [modelsOpen, setModelsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const editRef = useRef<HTMLInputElement>(null);
@@ -655,15 +701,12 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
 
   return (
     <>
-      {/* Overlay — mobile only */}
       <div className={`fixed inset-0 z-30 bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`} onClick={onClose} />
       <aside className={`fixed left-0 top-0 z-30 flex h-full w-[85vw] max-w-[300px] flex-col border-r border-[var(--c-border)] bg-[var(--c-bg2)] transition-transform duration-300 ease-out lg:relative lg:w-72 lg:max-w-none lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        {/* Header */}
+        {/* Header with logo */}
         <div className="flex items-center gap-3 border-b border-[var(--c-border)] px-4 sm:px-5 py-3 sm:py-4 sidebar-safe-top">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0" style={{ background: `linear-gradient(135deg, var(--c-accent), var(--c-accent-h))` }}>
-            <IconSparkle className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-base font-semibold text-[var(--c-text)] tracking-tight">Alex Chat</span>
+          <DophyLogo className="w-8 h-8 shrink-0" />
+          <span className="text-base font-semibold text-[var(--c-text)] tracking-tight">DophyAI</span>
           <button onClick={onClose} className="ml-auto rounded-lg p-2 text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text)] lg:hidden active:scale-95 touch-manipulation"><IconX className="w-4 h-4" /></button>
         </div>
 
@@ -675,8 +718,47 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-2 sidebar-safe-bottom">
-          {/* Models (collapsible) */}
+          {/* ============ AUTOMATIC Section ============ */}
           <div className="mb-1">
+            <button onClick={() => setAutoOpen(!autoOpen)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--c-text3)] hover:text-[var(--c-text2)] touch-manipulation">
+              <IconWand className="w-3.5 h-3.5" /> Automatic
+              <IconChevron className={`w-3 h-3 ml-auto transition-transform duration-200 ${autoOpen ? '' : '-rotate-90'}`} />
+            </button>
+            <div className={`overflow-hidden transition-all duration-300 ${autoOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="mt-1 space-y-1 pb-2">
+                {AUTO_ITEMS.map(item => {
+                  const Ic = item.icon;
+                  const active = selectedModel === item.key;
+                  const mode = AUTO_MODES[item.key];
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => { onSelectModel(item.key); onClose(); }}
+                      className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all touch-manipulation ${
+                        active
+                          ? `${item.activeBg} border ${item.activeBorder}`
+                          : 'border border-transparent hover:bg-[var(--c-surface)] active:bg-[var(--c-surface-h)]'
+                      }`}
+                    >
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${active ? item.bg : 'bg-[var(--c-surface)]'}`}>
+                        <Ic className={`w-3.5 h-3.5 ${active ? item.iconActive : item.iconInactive}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-[13px] font-medium leading-tight ${active ? item.activeText : 'text-[var(--c-text)]'}`}>{mode.label}</p>
+                        <p className="text-[10px] text-[var(--c-text4)] leading-tight mt-0.5">{mode.description}</p>
+                      </div>
+                      {active && <div className={`ml-auto h-1.5 w-1.5 rounded-full shrink-0 ${item.iconActive.replace('text-', 'bg-')}`} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="mx-2 border-t border-[var(--c-border)]" />
+
+          {/* ============ Individual Models Section ============ */}
+          <div className="mb-1 mt-1">
             <button onClick={() => setModelsOpen(!modelsOpen)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--c-text3)] hover:text-[var(--c-text2)] touch-manipulation">
               <IconChip className="w-3.5 h-3.5" /> Models
               <IconChevron className={`w-3 h-3 ml-auto transition-transform duration-200 ${modelsOpen ? '' : '-rotate-90'}`} />
@@ -722,9 +804,9 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
             </div>
           </div>
 
-          <div className="mx-2 my-2 border-t border-[var(--c-border)]" />
+          <div className="mx-2 my-1 border-t border-[var(--c-border)]" />
 
-          {/* Chats */}
+          {/* ============ Chats Section ============ */}
           <div className="flex items-center gap-2 px-2 py-2">
             <IconChat className="w-3.5 h-3.5 text-[var(--c-text3)]" />
             <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--c-text3)]">Chats</span>
@@ -779,7 +861,7 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
         {/* Bottom bar */}
         <div className="border-t border-[var(--c-border)] px-4 py-3">
           <div className="flex items-center justify-center gap-2">
-            <div className={`h-1.5 w-1.5 rounded-full ${isGoogleModel(selectedModel) ? 'bg-blue-400' : 'bg-emerald-400'}`} />
+            <div className={`h-1.5 w-1.5 rounded-full ${getModelDotColor(selectedModel)}`} />
             <p className="text-[11px] text-[var(--c-text3)] font-medium truncate">{getModelShortName(selectedModel)}</p>
           </div>
         </div>
@@ -799,11 +881,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="group flex gap-2.5 sm:gap-3 px-3 py-2 sm:px-6 sm:py-3">
       <div className={`mt-1 flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full ${isUser ? 'bg-[var(--c-surface-active)]' : ''}`} style={!isUser ? { background: `linear-gradient(135deg, var(--c-accent), var(--c-accent-h))` } : undefined}>
-        {isUser ? <IconUser className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[var(--c-text2)]" /> : <IconSparkle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" />}
+        {isUser ? <IconUser className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[var(--c-text2)]" /> : <DophyLogo className="w-6 h-6 sm:w-7 sm:h-7" />}
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1 sm:mb-1.5 flex items-center gap-2">
-          <span className="text-xs font-semibold text-[var(--c-text2)]">{isUser ? 'You' : (message.model ? getModelShortName(message.model) : 'Alex')}</span>
+          <span className="text-xs font-semibold text-[var(--c-text2)]">{isUser ? 'You' : (message.model ? getModelShortName(message.model) : 'DophyAI')}</span>
           <span className="text-[10px] text-[var(--c-text4)]">{new Date(message.timestamp).toLocaleTimeString()}</span>
         </div>
         {message.images && message.images.length > 0 && (
@@ -866,19 +948,16 @@ export function App() {
   const messages = activeSession?.messages || [];
   const hasKeys = config.googleKeys.length > 0 || !!config.openrouterKey;
 
-  // Swipe gesture for sidebar
   const swipeHandlers = useSwipe(
     () => { if (!settingsOpen) setSidebarOpen(true); },
     () => { if (sidebarOpen) setSidebarOpen(false); }
   );
 
-  // Apply theme on mount & changes
   useEffect(() => { applyThemeToDOM(config.theme); }, [config.theme]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => { const t = setTimeout(() => saveSessions(sessions), 300); return () => clearTimeout(t); }, [sessions]);
   useEffect(() => { saveActiveId(activeSessionId); }, [activeSessionId]);
 
-  // Prevent iOS overscroll bounce
   useEffect(() => {
     const preventBounce = (e: Event) => {
       const t = e.target as HTMLElement;
@@ -916,14 +995,17 @@ export function App() {
     if (!text && attachedImages.length === 0) return;
     if (isLoading) return;
 
-    // Validate keys
-    if (isGoogleModel(selectedModel) && config.googleKeys.length === 0) {
-      addLog({ timestamp: Date.now(), level: 'error', message: 'No Google API keys. Open Settings → API.' });
+    // Validate keys based on selected model
+    const needsGoogle = isGoogleModel(selectedModel);
+    const needsOR = !needsGoogle;
+
+    if (needsGoogle && config.googleKeys.length === 0) {
+      addLog({ timestamp: Date.now(), level: 'error', message: 'No Google API keys configured. Open Settings.' });
       setSettingsOpen(true);
       return;
     }
-    if (!isGoogleModel(selectedModel) && !config.openrouterKey) {
-      addLog({ timestamp: Date.now(), level: 'error', message: 'No OpenRouter key. Open Settings → API.' });
+    if (needsOR && !config.openrouterKey) {
+      addLog({ timestamp: Date.now(), level: 'error', message: 'No OpenRouter key configured. Open Settings.' });
       setSettingsOpen(true);
       return;
     }
@@ -971,6 +1053,8 @@ export function App() {
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }, [handleSend]);
   const handleInputChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => { setInput(e.target.value); const el = e.target; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 160) + 'px'; }, []);
 
+  const dotColor = getModelDotColor(selectedModel);
+
   return (
     <div className="flex h-[100dvh] bg-[var(--c-bg)] text-[var(--c-text)] font-[Inter,system-ui,sans-serif] overflow-hidden" {...swipeHandlers}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} selectedModel={selectedModel} onSelectModel={handleModelSelect} config={config} sessions={sessions} activeSessionId={activeSessionId} onSelectSession={handleSelectSession} onNewChat={handleNewChat} onDeleteSession={handleDeleteSession} onRenameSession={handleRenameSession} onClearAllSessions={handleClearAllSessions} />
@@ -980,8 +1064,9 @@ export function App() {
         <header className="flex items-center gap-2 sm:gap-3 border-b border-[var(--c-border)] bg-[var(--c-bg)] px-3 sm:px-6 py-2.5 sm:py-3 header-safe-top">
           <button onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text)] lg:hidden active:scale-95 touch-manipulation"><IconMenu /></button>
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className={`h-2 w-2 rounded-full shrink-0 ${isGoogleModel(selectedModel) ? 'bg-blue-400' : 'bg-emerald-400'}`} />
+            <div className={`h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
             <span className="text-sm font-medium text-[var(--c-text2)] truncate">{getModelShortName(selectedModel)}</span>
+            {isAutoMode(selectedModel) && <span className="hidden sm:inline rounded-md bg-[var(--c-accent-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--c-accent-t)] shrink-0">AUTO</span>}
             {isImageCapableModel(selectedModel) && <span className="hidden sm:inline rounded-md bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-violet-400 shrink-0">IMG</span>}
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
@@ -1006,12 +1091,11 @@ export function App() {
                   </div>
                 </div>
               )}
-              <div className="mb-4 sm:mb-6 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-[var(--c-accent-bg)] ring-1 ring-[var(--c-accent-glow)]">
-                <IconSparkle className="w-7 h-7 sm:w-8 sm:h-8 text-[var(--c-accent-t)]" />
+              <div className="mb-4 sm:mb-6">
+                <DophyLogoBig />
               </div>
-              <h1 className="mb-2 text-xl sm:text-2xl font-semibold text-[var(--c-text)]">Alex Chat</h1>
-              <p className="mb-6 sm:mb-8 max-w-md text-center text-xs sm:text-sm text-[var(--c-text3)]">AI assistant with Google Gemini & DeepSeek</p>
-              {/* Mobile swipe hint */}
+              <h1 className="mb-2 text-xl sm:text-2xl font-semibold text-[var(--c-text)]">DophyAI</h1>
+              <p className="mb-6 sm:mb-8 max-w-md text-center text-xs sm:text-sm text-[var(--c-text3)]">Your AI assistant — Google Gemini & DeepSeek</p>
               <div className="mb-4 flex items-center gap-2 text-[10px] text-[var(--c-text4)] lg:hidden">
                 <IconSwipe className="w-4 h-4" />
                 <span>Swipe from left edge for sidebar</span>
@@ -1020,7 +1104,7 @@ export function App() {
                 {[
                   { text: 'Explain quantum computing', icon: <IconChip className="w-4 h-4" /> },
                   { text: 'Write a Python sort algorithm', icon: <IconTerminal className="w-4 h-4" /> },
-                  { text: 'Solve: $\\int x^2 dx$', icon: <IconSparkle className="w-4 h-4" /> },
+                  { text: 'Solve: $\\int x^2 dx$', icon: <IconWand className="w-4 h-4" /> },
                   { text: 'Compare React vs Vue', icon: <IconPrompt className="w-4 h-4" /> },
                 ].map((ex, i) => (
                   <button key={i} onClick={() => { setInput(ex.text); inputRef.current?.focus(); }} className="flex items-center gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] px-3.5 py-3 text-left text-sm text-[var(--c-text2)] transition-all hover:border-[var(--c-border-h)] hover:bg-[var(--c-surface-h)] hover:text-[var(--c-text)] active:scale-[0.98] touch-manipulation">
@@ -1054,7 +1138,7 @@ export function App() {
               <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
               <button type="button" onClick={() => fileInputRef.current?.click()} className="shrink-0 rounded-xl p-2.5 text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text2)] active:scale-95 touch-manipulation" title="Upload image"><IconImage className="w-5 h-5" /></button>
               <div className="relative flex-1">
-                <textarea ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} placeholder="Message Alex..." rows={1} className="w-full resize-none rounded-xl border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none transition-all focus:border-[var(--c-accent-border)] focus:ring-1 focus:ring-[var(--c-accent-glow)]" style={{ maxHeight: '160px' }} />
+                <textarea ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} placeholder="Message DophyAI..." rows={1} className="w-full resize-none rounded-xl border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none transition-all focus:border-[var(--c-accent-border)] focus:ring-1 focus:ring-[var(--c-accent-glow)]" style={{ maxHeight: '160px' }} />
               </div>
               {isLoading ? (
                 <button type="button" onClick={handleStop} className="shrink-0 rounded-xl bg-red-500/20 p-2.5 text-red-400 hover:bg-red-500/30 active:scale-95 touch-manipulation" title="Stop"><IconStop /></button>
