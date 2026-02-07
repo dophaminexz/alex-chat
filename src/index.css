@@ -109,23 +109,38 @@
 }
 
 /* =============================================================================
-   Base
+   Base & Reset
    ============================================================================= */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--c-accent-glow) transparent;
+  -webkit-tap-highlight-color: transparent;
 }
 *::-webkit-scrollbar { width: 6px; height: 6px; }
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: var(--c-accent-glow); border-radius: 999px; }
 *::-webkit-scrollbar-thumb:hover { background: var(--c-accent-border); }
 
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
+  height: 100%;
   background: var(--c-bg);
   color: var(--c-text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+#root {
+  height: 100%;
 }
 
 ::selection {
@@ -134,7 +149,50 @@ body {
 }
 
 /* =============================================================================
-   Markdown / Prose — Dark Mode
+   Safe Area Insets (iOS notch, home indicator, Android nav)
+   ============================================================================= */
+.header-safe-top {
+  padding-top: max(0.625rem, env(safe-area-inset-top));
+}
+
+.sidebar-safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.settings-safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.input-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.sidebar-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.settings-safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+/* =============================================================================
+   Touch helpers
+   ============================================================================= */
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Hide scrollbar on tab bar (mobile) */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* =============================================================================
+   Markdown / Prose
    ============================================================================= */
 .prose-custom .katex {
   color: var(--c-accent-t);
@@ -209,6 +267,7 @@ body {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+.group[class*="flex"][class*="gap-2\\.5"],
 .group[class*="flex"][class*="gap-3"] {
   animation: fadeIn 0.25s ease-out;
 }
@@ -227,15 +286,61 @@ textarea::placeholder {
   overflow-y: hidden;
 }
 
+/* =============================================================================
+   Mobile-specific
+   ============================================================================= */
 @media (max-width: 640px) {
+  /* Smaller code blocks on mobile */
   .prose-custom pre {
-    margin-left: -0.5rem;
-    margin-right: -0.5rem;
-    border-radius: 0.5rem;
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    padding: 0.75rem;
+  }
+  .prose-custom pre code {
+    font-size: 0.75rem;
+    line-height: 1.6;
   }
   .prose-custom .katex-display {
-    margin-left: -0.5rem;
-    margin-right: -0.5rem;
-    border-radius: 0.5rem;
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .prose-custom .katex {
+    font-size: 0.95em;
+  }
+  /* Smaller tables on mobile */
+  .prose-custom table {
+    font-size: 0.8125rem;
+  }
+  /* Ensure images fit */
+  .prose-custom img {
+    max-width: 100%;
+    height: auto;
+  }
+  /* Hide desktop scrollbar on mobile */
+  *::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+  }
+}
+
+/* Large screens — hide mobile indicators */
+@media (min-width: 1024px) {
+  /* Slightly wider scrollbar on desktop */
+  *::-webkit-scrollbar { width: 8px; }
+}
+
+/* Prevent double-tap zoom on buttons */
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Ensure textarea doesn't zoom on iOS (font-size >= 16px) */
+@media (max-width: 640px) {
+  textarea, input[type="text"] {
+    font-size: 16px !important;
   }
 }
