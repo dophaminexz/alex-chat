@@ -1,14 +1,11 @@
 // =============================================================================
-// API Layer — Google Gemini + OpenRouter (with robust key rotation)
+// API Layer — Google Gemini + OpenRouter (with auto-modes and key rotation)
 // =============================================================================
 
 export type ThemeMode = 'dark' | 'light';
 export type ColorScheme = 'indigo' | 'emerald' | 'rose' | 'amber';
 
-export interface ThemeConfig {
-  mode: ThemeMode;
-  scheme: ColorScheme;
-}
+export interface ThemeConfig { mode: ThemeMode; scheme: ColorScheme; }
 
 export interface ChatMessage {
   id: string;
@@ -45,14 +42,60 @@ export interface LogEntry {
   message: string;
 }
 
+// =============================================================================
+// Auto Mode Definitions
+// =============================================================================
+
+export interface AutoModeConfig {
+  label: string;
+  description: string;
+  provider: 'google' | 'openrouter';
+  models: string[]; // empty for openrouter = use config.openrouterModels
+}
+
+export const AUTO_MODES: Record<string, AutoModeConfig> = {
+  'auto-gemini-flash': {
+    label: 'Gemini Fast',
+    description: 'Flash models · auto-fallback',
+    provider: 'google',
+    models: [
+      'gemini-flash-latest',
+      'gemini-3-flash-preview',
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+    ],
+  },
+  'auto-gemini-pro': {
+    label: 'Gemini Pro',
+    description: 'Pro models · best quality',
+    provider: 'google',
+    models: [
+      'gemini-3-pro-preview',
+      'gemini-2.5-pro',
+    ],
+  },
+  'auto-openrouter': {
+    label: 'OpenRouter',
+    description: 'Random free model',
+    provider: 'openrouter',
+    models: [],
+  },
+};
+
+export function isAutoMode(model: string): boolean {
+  return model in AUTO_MODES;
+}
+
+// =============================================================================
+// Default Models (no -image variants — they don't work)
+// =============================================================================
+
 export const DEFAULT_GOOGLE_MODELS = [
   'gemini-2.0-flash',
   'gemini-2.5-flash',
   'gemini-2.5-pro',
-  'gemini-2.5-flash-image',
   'gemini-3-flash-preview',
   'gemini-3-pro-preview',
-  'gemini-3-pro-image-preview',
 ];
 
 export const DEFAULT_OPENROUTER_MODELS = [
@@ -60,22 +103,23 @@ export const DEFAULT_OPENROUTER_MODELS = [
   'tngtech/deepseek-r1t2-chimera:free',
 ];
 
-// Empty by default — user must add their own keys
 export const DEFAULT_GOOGLE_KEYS: string[] = [];
 export const DEFAULT_OPENROUTER_KEY = '';
-
 export const DEFAULT_THEME: ThemeConfig = { mode: 'dark', scheme: 'indigo' };
 
-export const DEFAULT_SYSTEM_PROMPT = [
-  'ПРАВИЛА ОФОРМЛЕНИЯ:',
-  '1. Используй LaTeX для формул: $inline$ или $$block$$.',
-  '2. Используй Markdown для форматирования текста.',
-  '3. Для таблиц используй Markdown формат (| col | col |).',
-  '4. Если просят построить график, составь Markdown таблицу значений (X | Y) с минимум 10 точками.',
-  '5. Для кода используй блоки ```язык ... ```.',
-].join('\n');
+export const DEFAULT_SYSTEM_PROMPT = `ПРАВИЛА ОФОРМЛЕНИЯ:
+1. Используй LaTeX для формул: $inline$ или $$block$$.
+2. Используй Markdown для форматирования текста.
+3. Для таблиц используй Markdown формат (| col | col |).
+4. Если просят построить график, составь Markdown таблицу значений (X | Y) с минимум 10 точками.
+5. Для кода используй блоки \`\`\`язык ... \`\`\`.`;
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
 
 export function isGoogleModel(model: string): boolean {
+  if (isAutoMode(model)) return AUTO_MODES[model].provider === 'google';
   return model.startsWith('gemini');
 }
 
@@ -84,11 +128,24 @@ export function isImageCapableModel(model: string): boolean {
 }
 
 export function getModelShortName(model: string): string {
-  if (model.includes('/')) {
-    return model.split('/').pop()?.replace(':free', '') || model;
-  }
+  if (model === 'auto-gemini-flash') return 'Auto: Flash';
+  if (model === 'auto-gemini-pro') return 'Auto: Pro';
+  if (model === 'auto-openrouter') return 'Auto: OpenRouter';
+  if (model.includes('/')) return model.split('/').pop()?.replace(':free', '') || model;
   return model;
 }
+
+export function getModelDotColor(model: string): string {
+  if (model === 'auto-gemini-flash') return 'bg-amber-400';
+  if (model === 'auto-gemini-pro') return 'bg-violet-400';
+  if (model === 'auto-openrouter') return 'bg-emerald-400';
+  if (isGoogleModel(model)) return 'bg-blue-400';
+  return 'bg-emerald-400';
+}
+
+// =============================================================================
+// Message conversion helpers
+// =============================================================================
 
 function toGeminiContents(messages: ChatMessage[]) {
   return messages.map(msg => {
@@ -120,8 +177,12 @@ function toOpenAIMessages(messages: ChatMessage[], systemPrompt: string) {
 }
 
 function isRetryableError(errorMsg: string): boolean {
-  return /429|500|503|overloaded|quota|rate.?limit|capacity|unavailable/i.test(errorMsg);
+  return /429|500|503|overloaded|quota|rate.?limit|capacity|unavailable|keys? failed|exhausted/i.test(errorMsg);
 }
+
+// =============================================================================
+// Gemini Streaming (with key rotation)
+// =============================================================================
 
 export async function callGeminiStreaming(
   messages: ChatMessage[],
@@ -134,7 +195,7 @@ export async function callGeminiStreaming(
   signal?: AbortSignal
 ): Promise<{ text: string; images: string[] }> {
   if (keys.length === 0) {
-    throw new Error('No Google API keys configured. Go to Settings → API Keys to add one.');
+    throw new Error('No Google API keys configured. Go to Settings → API Keys.');
   }
 
   const shuffledKeys = [...keys].sort(() => Math.random() - 0.5);
@@ -241,7 +302,7 @@ export async function callGeminiStreaming(
       }
 
       if (!gotContent && !fullText && images.length === 0) {
-        throw new Error('Empty response');
+        throw new Error('Empty response from model');
       }
 
       addLog({ timestamp: Date.now(), level: 'info', message: `← OK via ...${keyHint} (${fullText.length} chars${images.length ? `, ${images.length} imgs` : ''})` });
@@ -259,9 +320,13 @@ export async function callGeminiStreaming(
     }
   }
 
-  addLog({ timestamp: Date.now(), level: 'error', message: `All ${shuffledKeys.length} keys exhausted` });
-  throw new Error(`All ${shuffledKeys.length} keys failed. Add more keys or try later.`);
+  addLog({ timestamp: Date.now(), level: 'error', message: `All ${shuffledKeys.length} keys exhausted for ${model}` });
+  throw new Error(`All ${shuffledKeys.length} keys failed for ${model}.`);
 }
+
+// =============================================================================
+// OpenRouter Streaming
+// =============================================================================
 
 export async function callOpenRouter(
   messages: ChatMessage[],
@@ -273,7 +338,7 @@ export async function callOpenRouter(
   signal?: AbortSignal
 ): Promise<{ text: string; images: string[] }> {
   if (!apiKey) {
-    throw new Error('No OpenRouter API key. Go to Settings → API Keys to add one.');
+    throw new Error('No OpenRouter API key. Go to Settings → API Keys.');
   }
 
   addLog({ timestamp: Date.now(), level: 'info', message: `→ OpenRouter [${getModelShortName(model)}]` });
@@ -284,7 +349,7 @@ export async function callOpenRouter(
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': window.location.origin,
-      'X-Title': 'GeminiChat',
+      'X-Title': 'DophyAI',
     },
     body: JSON.stringify({ model, messages: toOpenAIMessages(messages, systemPrompt), stream: true }),
     signal,
@@ -323,6 +388,83 @@ export async function callOpenRouter(
   return { text: fullText, images: [] };
 }
 
+// =============================================================================
+// Auto Mode — tries models in priority order with fallback
+// =============================================================================
+
+async function callAutoMode(
+  messages: ChatMessage[],
+  autoKey: string,
+  config: AppConfig,
+  onChunk: (text: string) => void,
+  onResetContent: () => void,
+  addLog: (entry: LogEntry) => void,
+  signal?: AbortSignal
+): Promise<{ text: string; images: string[] }> {
+  const autoConfig = AUTO_MODES[autoKey];
+  if (!autoConfig) throw new Error(`Unknown auto mode: ${autoKey}`);
+
+  let modelsToTry: string[];
+
+  if (autoConfig.provider === 'openrouter') {
+    // Shuffle OpenRouter models randomly
+    modelsToTry = [...config.openrouterModels].sort(() => Math.random() - 0.5);
+    if (modelsToTry.length === 0) {
+      throw new Error('No OpenRouter models configured. Add models in Settings → Models.');
+    }
+  } else {
+    modelsToTry = [...autoConfig.models];
+  }
+
+  addLog({ timestamp: Date.now(), level: 'info', message: `🔄 Auto [${autoConfig.label}] — ${modelsToTry.length} model(s) to try` });
+
+  const allErrors: string[] = [];
+
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const modelName = modelsToTry[i];
+    if (signal?.aborted) throw new Error('Request aborted');
+
+    addLog({ timestamp: Date.now(), level: 'info', message: `Auto: trying ${getModelShortName(modelName)} (${i + 1}/${modelsToTry.length})` });
+
+    try {
+      onResetContent();
+
+      if (autoConfig.provider === 'google') {
+        return await callGeminiStreaming(
+          messages, modelName, config.googleKeys, config.systemPrompt,
+          onChunk, onResetContent, addLog, signal
+        );
+      } else {
+        return await callOpenRouter(
+          messages, modelName, config.openrouterKey, config.systemPrompt,
+          onChunk, addLog, signal
+        );
+      }
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      if (errMsg.includes('abort')) throw e;
+
+      allErrors.push(`${getModelShortName(modelName)}: ${errMsg.slice(0, 80)}`);
+
+      // Non-retryable errors (prompt blocked, etc.) should stop entirely
+      if (!isRetryableError(errMsg)) {
+        addLog({ timestamp: Date.now(), level: 'error', message: `Auto: ${getModelShortName(modelName)} non-retryable error: ${errMsg.slice(0, 80)}` });
+        throw e;
+      }
+
+      addLog({ timestamp: Date.now(), level: 'warn', message: `Auto: ${getModelShortName(modelName)} failed, trying next...` });
+      continue;
+    }
+  }
+
+  addLog({ timestamp: Date.now(), level: 'error', message: `Auto: all ${modelsToTry.length} models failed` });
+  throw new Error(`Auto mode: all ${modelsToTry.length} models failed. Check API keys or try later.\n\n${allErrors.join('\n')}`);
+}
+
+// =============================================================================
+// Main Router
+// =============================================================================
+
 export async function generateResponse(
   messages: ChatMessage[],
   model: string,
@@ -332,6 +474,12 @@ export async function generateResponse(
   addLog: (entry: LogEntry) => void,
   signal?: AbortSignal
 ): Promise<{ text: string; images: string[] }> {
+  // Auto mode
+  if (isAutoMode(model)) {
+    return callAutoMode(messages, model, config, onChunk, onResetContent, addLog, signal);
+  }
+
+  // Direct model call
   if (isGoogleModel(model)) {
     return callGeminiStreaming(messages, model, config.googleKeys, config.systemPrompt, onChunk, onResetContent, addLog, signal);
   } else {
