@@ -96,6 +96,12 @@ export const AUTO_MODES: Record<string, AutoModeConfig> = {
       'gpt-oss-120b',
     ],
   },
+  'auto-search': {
+    label: 'AI Search',
+    description: 'Google Search · grounded answers',
+    provider: 'google',
+    models: [],
+  },
 };
 
 export function isAutoMode(model: string): boolean {
@@ -188,7 +194,6 @@ export function isGoogleModel(model: string): boolean {
 
 export function isSambaModel(model: string): boolean {
   if (isAutoMode(model)) return AUTO_MODES[model].provider === 'sambanova';
-  // SambaNova models: DeepSeek-*, gpt-oss-*
   return /^(DeepSeek-|gpt-oss-)/.test(model);
 }
 
@@ -201,6 +206,7 @@ export function getModelShortName(model: string): string {
   if (model === 'auto-gemini-pro') return 'Auto: Pro';
   if (model === 'auto-openrouter') return 'Auto: OpenRouter';
   if (model === 'auto-samba') return 'Auto: Samba';
+  if (model === 'auto-search') return 'AI Search';
   if (model.includes('/')) return model.split('/').pop()?.replace(':free', '') || model;
   return model;
 }
@@ -210,10 +216,13 @@ export function getModelDotColor(model: string): string {
   if (model === 'auto-gemini-pro') return 'bg-violet-400';
   if (model === 'auto-openrouter') return 'bg-emerald-400';
   if (model === 'auto-samba') return 'bg-orange-400';
+  if (model === 'auto-search') return 'bg-cyan-400';
   if (isGoogleModel(model)) return 'bg-blue-400';
   if (isSambaModel(model)) return 'bg-orange-400';
   return 'bg-emerald-400';
 }
+
+function uid(): string { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
 // =============================================================================
 // Message conversion helpers
@@ -240,7 +249,6 @@ function toOpenAIMessages(messages: ChatMessage[], systemPrompt: string) {
     { role: 'system', content: systemPrompt }
   ];
   for (const msg of messages) {
-    // If message has images, use multimodal content format
     if (msg.role === 'user' && msg.images && msg.images.length > 0) {
       const content: { type: string; text?: string; image_url?: { url: string } }[] = [];
       content.push({ type: 'text', text: msg.content || 'Describe this image' });
@@ -539,6 +547,319 @@ export async function callSambaNovaStreaming(
 }
 
 // =============================================================================
+// AI Search Mode — Uses Gemini's built-in Google Search grounding
+// =============================================================================
+// This uses the Gemini API's native `google_search` tool which provides
+// real-time web search results directly from Google. No CORS issues,
+// no third-party proxies — just a direct API call with the user's existing
+// Google API keys.
+// =============================================================================
+
+interface GroundingSource {
+  title: string;
+  url: string;
+}
+
+function getCurrentDateInfo(): { dateStr: string; year: number } {
+  const now = new Date();
+  return {
+    dateStr: now.toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    }),
+    year: now.getFullYear(),
+  };
+}
+
+/**
+ * Calls Gemini with google_search grounding tool.
+ * Streams the response text and collects grounding sources from metadata.
+ * Accepts full conversation history for multi-turn context.
+ */
+async function callGeminiWithSearch(
+  messages: ChatMessage[],
+  keys: string[],
+  systemPrompt: string,
+  onChunk: (text: string) => void,
+  addLog: (entry: LogEntry) => void,
+  signal?: AbortSignal
+): Promise<{ text: string; sources: GroundingSource[] }> {
+  const shuffledKeys = [...keys].sort(() => Math.random() - 0.5);
+  // Models that support google_search tool
+  const searchModels = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+  for (const model of searchModels) {
+    for (const key of shuffledKeys) {
+      if (signal?.aborted) throw new Error('Request aborted');
+      const keyHint = key.slice(-6);
+
+      try {
+        addLog({ timestamp: Date.now(), level: 'info', message: `🔍 Searching via ${model} ...${keyHint}` });
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${key}&alt=sse`;
+
+        // Build full conversation contents for multi-turn context
+        const contents = toGeminiContents(messages);
+
+        const body = {
+          contents,
+          tools: [{ google_search: {} }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
+        };
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          // Check for location error
+          if (errorText.includes('not supported') || errorText.includes('FAILED_PRECONDITION')) {
+            throw new Error(`HTTP 400: ${errorText.slice(0, 200)}`);
+          }
+          throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 200)}`);
+        }
+
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+        const sources: GroundingSource[] = [];
+        let buffer = '';
+        let gotContent = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr || jsonStr === '[DONE]') continue;
+
+            try {
+              const data = JSON.parse(jsonStr);
+
+              if (data.error) {
+                const errMsg = data.error.message || JSON.stringify(data.error);
+                throw new Error(`Stream error: ${errMsg.slice(0, 200)}`);
+              }
+
+              const candidates = data.candidates || [];
+              if (candidates.length === 0) continue;
+
+              const candidate = candidates[0];
+
+              // Extract text
+              const parts = candidate?.content?.parts || [];
+              for (const part of parts) {
+                if (part.text) {
+                  fullText += part.text;
+                  onChunk(part.text);
+                  gotContent = true;
+                }
+              }
+
+              // Extract grounding metadata (comes in later chunks)
+              const groundingMeta = candidate?.groundingMetadata;
+              if (groundingMeta?.groundingChunks) {
+                for (const chunk of groundingMeta.groundingChunks) {
+                  if (chunk.web?.uri) {
+                    const exists = sources.some(s => s.url === chunk.web.uri);
+                    if (!exists) {
+                      sources.push({
+                        title: chunk.web.title || '',
+                        url: chunk.web.uri,
+                      });
+                    }
+                  }
+                }
+              }
+
+              // Also check groundingSupports for additional source info
+              if (groundingMeta?.groundingSupports) {
+                for (const support of groundingMeta.groundingSupports) {
+                  if (support.groundingChunkIndices) {
+                    // These reference the chunks above, already collected
+                  }
+                }
+              }
+
+              // Check webSearchQueries for logging
+              if (groundingMeta?.webSearchQueries) {
+                addLog({
+                  timestamp: Date.now(),
+                  level: 'info',
+                  message: `🔎 Search queries: ${groundingMeta.webSearchQueries.join(' | ')}`,
+                });
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof Error && parseErr.message.startsWith('Stream error')) {
+                if (gotContent) {
+                  addLog({ timestamp: Date.now(), level: 'warn', message: 'Stream interrupted with partial content' });
+                  return { text: fullText, sources };
+                }
+                throw parseErr;
+              }
+            }
+          }
+        }
+
+        if (!gotContent && !fullText) {
+          throw new Error('Empty search response');
+        }
+
+        addLog({
+          timestamp: Date.now(),
+          level: 'info',
+          message: `✓ Search OK: ${fullText.length} chars, ${sources.length} sources`,
+        });
+
+        return { text: fullText, sources };
+
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        if (errMsg.includes('abort')) throw e;
+        // Non-retryable errors (like location not supported) should propagate
+        if (errMsg.includes('not supported') || errMsg.includes('FAILED_PRECONDITION')) {
+          throw e;
+        }
+        addLog({ timestamp: Date.now(), level: 'warn', message: `Search ${model} ...${keyHint}: ${errMsg.slice(0, 80)}` });
+        continue;
+      }
+    }
+  }
+
+  throw new Error('Google Search failed with all keys/models');
+}
+
+/**
+ * Fallback search: use SambaNova/OpenRouter without search grounding
+ * when Google keys are not available. Passes full conversation history.
+ */
+async function callFallbackSearch(
+  messages: ChatMessage[],
+  config: AppConfig,
+  onChunk: (text: string) => void,
+  addLog: (entry: LogEntry) => void,
+  signal?: AbortSignal
+): Promise<{ text: string; images: string[] }> {
+  const { dateStr, year } = getCurrentDateInfo();
+  const prompt = `Today is ${dateStr}, ${year}. The user is asking a question that would benefit from current information. Answer as best you can from your training knowledge. If the information might be outdated, clearly state that. Respond in the same language as the user's question. Use Markdown for formatting.`;
+
+  // Try SambaNova
+  if (config.sambaKey) {
+    const models = ['DeepSeek-V3.1', 'DeepSeek-V3-0324', 'gpt-oss-120b'];
+    for (const model of models) {
+      if (signal?.aborted) throw new Error('aborted');
+      try {
+        addLog({ timestamp: Date.now(), level: 'info', message: `📝 Fallback via SambaNova ${model}` });
+        return await callSambaNovaStreaming(messages, model, config.sambaKey, prompt, onChunk, addLog, signal);
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        if (errMsg.includes('abort')) throw e;
+        continue;
+      }
+    }
+  }
+
+  // Try OpenRouter
+  if (config.openrouterKey && config.openrouterModels.length > 0) {
+    const model = config.openrouterModels[0];
+    addLog({ timestamp: Date.now(), level: 'info', message: `📝 Fallback via OpenRouter ${getModelShortName(model)}` });
+    return await callOpenRouter(messages, model, config.openrouterKey, prompt, onChunk, addLog, signal);
+  }
+
+  throw new Error('AI Search requires Google API keys (for web search) or SambaNova/OpenRouter keys (for knowledge-based answers). Add keys in Settings.');
+}
+
+/**
+ * Main search mode handler.
+ * Primary: Gemini with Google Search grounding (real web results).
+ * Fallback: SambaNova/OpenRouter with training knowledge.
+ */
+async function callSearchMode(
+  messages: ChatMessage[],
+  config: AppConfig,
+  onChunk: (text: string) => void,
+  onResetContent: () => void,
+  addLog: (entry: LogEntry) => void,
+  signal?: AbortSignal
+): Promise<{ text: string; images: string[] }> {
+  const userQuery = messages[messages.length - 1]?.content || '';
+  if (!userQuery.trim()) throw new Error('Empty query');
+
+  const { dateStr, year } = getCurrentDateInfo();
+
+  addLog({ timestamp: Date.now(), level: 'info', message: '🔍 AI Search starting...' });
+
+  // ========= Primary: Gemini with Google Search grounding =========
+  if (config.googleKeys.length > 0) {
+    try {
+      onResetContent();
+
+      const systemPrompt = `Today is ${dateStr}. The current year is ${year}.
+
+You are an AI search assistant with access to Google Search. Answer the user's question using up-to-date information from the web.
+
+RULES:
+1. Provide accurate, comprehensive, and current information.
+2. Do NOT use numbered citation markers like [1], [2] in the text. Write naturally.
+3. Use Markdown formatting: headers, lists, bold text for readability.
+4. Use LaTeX for math: $inline$ or $$block$$.
+5. Respond in the SAME LANGUAGE as the user's question.
+6. If information is uncertain, say so.
+7. Be specific with dates, numbers, and facts.
+8. Use conversation history for context — if the user says "more details" or "tell me more", refer to the previous topic.`;
+
+      // Pass FULL conversation history for multi-turn context
+      const result = await callGeminiWithSearch(
+        messages,
+        config.googleKeys,
+        systemPrompt,
+        onChunk,
+        addLog,
+        signal
+      );
+
+      // Append sources in the special marker format for frontend parsing
+      let finalText = result.text;
+      if (result.sources.length > 0) {
+        finalText += '\n\n<!--SOURCES-->\n';
+        for (const s of result.sources) {
+          const title = s.title || (() => { try { return new URL(s.url).hostname; } catch { return s.url; } })();
+          finalText += `- [${title}](${s.url})\n`;
+        }
+        finalText += '<!--/SOURCES-->';
+      }
+
+      return { text: finalText, images: [] };
+
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      if (errMsg.includes('abort')) throw e;
+      // If location error, propagate it
+      if (errMsg.includes('not supported') || errMsg.includes('FAILED_PRECONDITION')) {
+        throw e;
+      }
+      // Otherwise fall through to SambaNova/OpenRouter fallback
+      addLog({ timestamp: Date.now(), level: 'warn', message: `Google Search failed: ${errMsg.slice(0, 80)}, trying fallback...` });
+    }
+  }
+
+  // ========= Fallback: SambaNova/OpenRouter without search =========
+  addLog({ timestamp: Date.now(), level: 'info', message: '📝 No Google keys — using knowledge-based answer' });
+  onResetContent();
+  return await callFallbackSearch(messages, config, onChunk, addLog, signal);
+}
+
+// =============================================================================
 // Auto Mode — tries models in priority order with fallback
 // =============================================================================
 
@@ -562,7 +883,6 @@ async function callAutoMode(
       throw new Error('No OpenRouter models configured. Add models in Settings → Models.');
     }
   } else if (autoConfig.provider === 'sambanova') {
-    // Use the auto mode's prioritized model list
     modelsToTry = [...autoConfig.models];
     if (modelsToTry.length === 0) {
       throw new Error('No SambaNova models configured.');
@@ -633,6 +953,10 @@ export async function generateResponse(
   addLog: (entry: LogEntry) => void,
   signal?: AbortSignal
 ): Promise<{ text: string; images: string[] }> {
+  if (model === 'auto-search') {
+    return callSearchMode(messages, config, onChunk, onResetContent, addLog, signal);
+  }
+
   if (isAutoMode(model)) {
     return callAutoMode(messages, model, config, onChunk, onResetContent, addLog, signal);
   }

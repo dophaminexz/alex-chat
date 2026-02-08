@@ -153,6 +153,9 @@ function IconClockLg({ className = 'w-4 h-4' }: { className?: string }) {
 function IconRocket({ className = 'w-4 h-4' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z" /><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z" /><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" /><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" /></svg>;
 }
+function IconSearch({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
+}
 
 // DophyAI Logo
 function DophyLogo({ className = 'w-8 h-8' }: { className?: string }) {
@@ -867,6 +870,7 @@ const AUTO_ITEMS = [
   { key: 'auto-gemini-pro', icon: IconCrown, color: 'violet', bg: 'bg-violet-500/15', activeText: 'text-violet-300', iconActive: 'text-violet-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-violet-500/10', activeBorder: 'border-violet-500/20' },
   { key: 'auto-samba', icon: IconRocket, color: 'orange', bg: 'bg-orange-500/15', activeText: 'text-orange-300', iconActive: 'text-orange-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-orange-500/10', activeBorder: 'border-orange-500/20' },
   { key: 'auto-openrouter', icon: IconShuffle, color: 'emerald', bg: 'bg-emerald-500/15', activeText: 'text-emerald-300', iconActive: 'text-emerald-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-emerald-500/10', activeBorder: 'border-emerald-500/20' },
+  { key: 'auto-search', icon: IconSearch, color: 'cyan', bg: 'bg-cyan-500/15', activeText: 'text-cyan-300', iconActive: 'text-cyan-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-cyan-500/10', activeBorder: 'border-cyan-500/20' }, // Google Search grounded
 ];
 
 // =============================================================================
@@ -916,7 +920,7 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
               <IconWand className="w-3.5 h-3.5" /> Automatic
               <IconChevron className={`w-3 h-3 ml-auto transition-transform duration-200 ${autoOpen ? '' : '-rotate-90'}`} />
             </button>
-            <div className={`overflow-hidden transition-all duration-300 ${autoOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className={`overflow-hidden transition-all duration-300 ${autoOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
               <div className="mt-1 space-y-1 pb-2">
                 {AUTO_ITEMS.map(item => {
                   const Ic = item.icon;
@@ -1118,6 +1122,136 @@ function isVPNLocationError(content: string): boolean {
 }
 
 // =============================================================================
+// Sources parser — extracts <!--SOURCES-->...<!--/SOURCES--> and also
+// catches common "Источники:" / "Sources:" sections at the end
+// =============================================================================
+interface ParsedSources {
+  mainContent: string;
+  sources: { title: string; url: string }[];
+}
+
+function parseSourcesFromContent(content: string): ParsedSources {
+  const sources: { title: string; url: string }[] = [];
+
+  // Method 1: Look for <!--SOURCES-->...<!--/SOURCES--> markers
+  const markerMatch = content.match(/<!--SOURCES-->([\s\S]*?)<!--\/SOURCES-->/);
+  if (markerMatch) {
+    const sourcesBlock = markerMatch[1];
+    const mainContent = content.replace(/<!--SOURCES-->[\s\S]*?<!--\/SOURCES-->/, '').trim();
+
+    // Parse markdown links: - [title](url)
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+    let m;
+    while ((m = linkRegex.exec(sourcesBlock)) !== null) {
+      sources.push({ title: m[1], url: m[2] });
+    }
+
+    // If no markdown links found, try plain URLs
+    if (sources.length === 0) {
+      const urlRegex = /(https?:\/\/[^\s,)]+)/g;
+      while ((m = urlRegex.exec(sourcesBlock)) !== null) {
+        sources.push({ title: new URL(m[1]).hostname, url: m[1] });
+      }
+    }
+
+    return { mainContent, sources };
+  }
+
+  // Method 2: Look for "Источники:" or "Sources:" section at end
+  // Match patterns like:
+  // \n\nИсточники:\n- url\n- url
+  // \nSources:\n1. url\n2. url
+  const sourceSectionRegex = /\n\n(?:#{0,3}\s*)?(?:Источники|Sources|Ссылки|References|Links)\s*:?\s*\n([\s\S]+?)$/i;
+  const sectionMatch = content.match(sourceSectionRegex);
+  if (sectionMatch) {
+    const block = sectionMatch[1];
+    const mainContent = content.slice(0, content.length - sectionMatch[0].length).trim();
+
+    // Parse markdown links
+    const linkRegex = /\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g;
+    let m;
+    while ((m = linkRegex.exec(block)) !== null) {
+      sources.push({ title: m[1] || new URL(m[2]).hostname, url: m[2] });
+    }
+
+    // Parse plain URLs (numbered or bulleted)
+    if (sources.length === 0) {
+      const urlRegex = /(https?:\/\/[^\s,)]+)/g;
+      while ((m = urlRegex.exec(block)) !== null) {
+        try {
+          sources.push({ title: new URL(m[1]).hostname, url: m[1] });
+        } catch {
+          sources.push({ title: m[1].slice(0, 40), url: m[1] });
+        }
+      }
+    }
+
+    if (sources.length > 0) {
+      return { mainContent, sources };
+    }
+  }
+
+  // Also strip any remaining [N] citation markers from content
+  const cleaned = content.replace(/\s*\[(\d+)\]/g, '');
+
+  return { mainContent: cleaned, sources };
+}
+
+// =============================================================================
+// Collapsible Sources Component
+// =============================================================================
+function SourcesSection({ sources }: { sources: { title: string; url: string }[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (sources.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-2 border-t border-[var(--c-border)]">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 rounded-lg px-2 py-1.5 -ml-2 text-xs transition-colors hover:bg-[var(--c-surface-h)] active:scale-[0.98] touch-manipulation"
+      >
+        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-cyan-500/15">
+          <IconSearch className="w-3 h-3 text-cyan-400" />
+        </div>
+        <span className="font-medium text-[var(--c-text3)]">
+          Sources
+        </span>
+        <span className="rounded-full bg-[var(--c-surface-h)] px-1.5 py-0.5 text-[10px] text-[var(--c-text4)]">
+          {sources.length}
+        </span>
+        <IconChevron className={`w-3 h-3 text-[var(--c-text4)] transition-transform duration-200 ${expanded ? '' : '-rotate-90'}`} />
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-1 pl-1">
+          {sources.map((s, i) => {
+            let hostname = '';
+            try { hostname = new URL(s.url).hostname.replace('www.', ''); } catch { hostname = s.url.slice(0, 30); }
+            const favicon = `https://www.google.com/s2/favicons?sz=16&domain=${hostname}`;
+            return (
+              <a
+                key={i}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-all hover:bg-[var(--c-surface-h)] active:scale-[0.99] touch-manipulation group/src"
+              >
+                <img src={favicon} alt="" className="w-4 h-4 rounded-sm shrink-0 opacity-70 group-hover/src:opacity-100" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[var(--c-text2)] group-hover/src:text-[var(--c-accent-t)] font-medium leading-tight">{s.title || hostname}</p>
+                  <p className="truncate text-[10px] text-[var(--c-text4)] leading-tight mt-0.5">{hostname}</p>
+                </div>
+                <svg className="w-3 h-3 text-[var(--c-text4)] shrink-0 opacity-0 group-hover/src:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" x2="21" y1="14" y2="3" /></svg>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // Streaming dots
 // =============================================================================
 function StreamingDots({ label = 'Thinking...' }: { label?: string }) {
@@ -1139,9 +1273,10 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry?: (
   const [thinkExpanded, setThinkExpanded] = useState(false);
   const isUser = message.role === 'user';
   const handleCopy = () => {
-    // Copy without think tags
-    const parsed = parseThinkContent(message.content);
-    const textToCopy = parsed.response || message.content;
+    // Copy without think tags and source markers
+    const thinkParsed = parseThinkContent(message.content);
+    const sourcesParsed = parseSourcesFromContent(thinkParsed.response || message.content);
+    const textToCopy = sourcesParsed.mainContent || thinkParsed.response || message.content;
     navigator.clipboard.writeText(textToCopy).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 
@@ -1149,6 +1284,13 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry?: (
   const parsed = !isUser ? parseThinkContent(message.content) : null;
   const isActivelyThinking = !isUser && message.isStreaming === true && parsed?.isThinkingPhase === true;
   const hasThinking = !isUser && parsed && parsed.thinking.length > 0;
+
+  // Parse sources from content (for AI Search responses)
+  const sourcesData = !isUser && !message.isStreaming && parsed
+    ? parseSourcesFromContent(parsed.response)
+    : null;
+  const displayContent = sourcesData ? sourcesData.mainContent : (parsed?.response || '');
+  const displaySources = sourcesData?.sources || [];
 
   // Error state
   const isError = !isUser && message.isError === true;
@@ -1261,15 +1403,28 @@ function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry?: (
 
                   {/* Response content */}
                   {(!parsed?.isThinkingPhase || !message.isStreaming) && (
-                    parsed?.response ? (
-                      <MarkdownContent content={parsed.response} />
+                    message.isStreaming ? (
+                      parsed?.response ? (
+                        <MarkdownContent content={parsed.response} />
+                      ) : (
+                        !parsed?.isThinkingPhase && hasThinking ? (
+                          <StreamingDots label="Generating response..." />
+                        ) : !hasThinking ? (
+                          <MarkdownContent content={message.content} />
+                        ) : null
+                      )
                     ) : (
-                      message.isStreaming && !parsed?.isThinkingPhase && hasThinking ? (
-                        <StreamingDots label="Generating response..." />
+                      displayContent ? (
+                        <MarkdownContent content={displayContent} />
                       ) : !hasThinking ? (
                         <MarkdownContent content={message.content} />
                       ) : null
                     )
+                  )}
+
+                  {/* Collapsible sources for AI Search */}
+                  {!message.isStreaming && displaySources.length > 0 && (
+                    <SourcesSection sources={displaySources} />
                   )}
                 </>
               )}
@@ -1380,9 +1535,16 @@ export function App() {
     if (!text && attachedImages.length === 0) return;
     if (isLoading) return;
 
-    const needsGoogle = isGoogleModel(selectedModel);
-    const needsSamba = isSambaModel(selectedModel);
-    const needsOR = !needsGoogle && !needsSamba;
+    const isSearch = selectedModel === 'auto-search';
+    const needsGoogle = !isSearch && isGoogleModel(selectedModel);
+    const needsSamba = !isSearch && isSambaModel(selectedModel);
+    const needsOR = !isSearch && !needsGoogle && !needsSamba;
+
+    if (isSearch && config.googleKeys.length === 0 && !config.sambaKey && !config.openrouterKey) {
+      addLog({ timestamp: Date.now(), level: 'error', message: 'AI Search requires at least one API key (Google recommended). Open Settings.' });
+      setSettingsOpen(true);
+      return;
+    }
 
     if (needsGoogle && config.googleKeys.length === 0) {
       addLog({ timestamp: Date.now(), level: 'error', message: 'No Google API keys configured. Open Settings.' });
@@ -1523,7 +1685,8 @@ export function App() {
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className={`h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
             <span className="text-sm font-medium text-[var(--c-text2)] truncate">{getModelShortName(selectedModel)}</span>
-            {isAutoMode(selectedModel) && <span className="hidden sm:inline rounded-md bg-[var(--c-accent-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--c-accent-t)] shrink-0">AUTO</span>}
+            {selectedModel === 'auto-search' && <span className="hidden sm:inline rounded-md bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-400 shrink-0">SEARCH</span>}
+            {isAutoMode(selectedModel) && selectedModel !== 'auto-search' && <span className="hidden sm:inline rounded-md bg-[var(--c-accent-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--c-accent-t)] shrink-0">AUTO</span>}
             {isImageCapableModel(selectedModel) && <span className="hidden sm:inline rounded-md bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-violet-400 shrink-0">IMG</span>}
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
