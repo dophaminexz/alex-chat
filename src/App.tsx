@@ -9,13 +9,16 @@ import {
   buildEffectiveSystemPrompt,
   DEFAULT_GOOGLE_MODELS,
   DEFAULT_OPENROUTER_MODELS,
+  DEFAULT_SAMBA_MODELS,
   DEFAULT_GOOGLE_KEYS,
   DEFAULT_OPENROUTER_KEY,
+  DEFAULT_SAMBA_KEY,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_THEME,
   AUTO_MODES,
   isAutoMode,
   isGoogleModel,
+  isSambaModel,
   isImageCapableModel,
   getModelShortName,
   getModelDotColor,
@@ -87,6 +90,9 @@ function IconGoogle({ className = 'w-4 h-4' }: { className?: string }) {
 function IconDeepSeek({ className = 'w-4 h-4' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-5-5 1.41-1.41L11 14.17l7.59-7.59L20 8l-9 9z" /></svg>;
 }
+function IconSamba({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z" /></svg>;
+}
 function IconChat({ className = 'w-4 h-4' }: { className?: string }) {
   return <I d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" className={className} />;
 }
@@ -143,6 +149,9 @@ function IconCalendar({ className = 'w-4 h-4' }: { className?: string }) {
 }
 function IconClockLg({ className = 'w-4 h-4' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>;
+}
+function IconRocket({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z" /><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z" /><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" /><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" /></svg>;
 }
 
 // DophyAI Logo
@@ -235,9 +244,11 @@ function loadConfig(): AppConfig {
       return {
         googleKeys: Array.isArray(p.googleKeys) ? p.googleKeys : [...DEFAULT_GOOGLE_KEYS],
         openrouterKey: typeof p.openrouterKey === 'string' ? p.openrouterKey : DEFAULT_OPENROUTER_KEY,
+        sambaKey: typeof p.sambaKey === 'string' ? p.sambaKey : DEFAULT_SAMBA_KEY,
         systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : DEFAULT_SYSTEM_PROMPT,
         googleModels: Array.isArray(p.googleModels) ? p.googleModels : [...DEFAULT_GOOGLE_MODELS],
         openrouterModels: Array.isArray(p.openrouterModels) ? p.openrouterModels : [...DEFAULT_OPENROUTER_MODELS],
+        sambaModels: Array.isArray(p.sambaModels) ? p.sambaModels : [...DEFAULT_SAMBA_MODELS],
         theme: (p.theme && p.theme.mode) ? { mode: p.theme.mode } : { ...DEFAULT_THEME },
         includeTime: typeof p.includeTime === 'boolean' ? p.includeTime : false,
         includeDate: typeof p.includeDate === 'boolean' ? p.includeDate : false,
@@ -248,9 +259,11 @@ function loadConfig(): AppConfig {
   return {
     googleKeys: [...DEFAULT_GOOGLE_KEYS],
     openrouterKey: DEFAULT_OPENROUTER_KEY,
+    sambaKey: DEFAULT_SAMBA_KEY,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     googleModels: [...DEFAULT_GOOGLE_MODELS],
     openrouterModels: [...DEFAULT_OPENROUTER_MODELS],
+    sambaModels: [...DEFAULT_SAMBA_MODELS],
     theme: { ...DEFAULT_THEME },
     includeTime: false,
     includeDate: false,
@@ -420,6 +433,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
   const [newKey, setNewKey] = useState('');
   const [newGoogleModel, setNewGoogleModel] = useState('');
   const [newOrModel, setNewOrModel] = useState('');
+  const [newSambaModel, setNewSambaModel] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [newMemory, setNewMemory] = useState('');
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -440,6 +454,8 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
   const removeGoogleModel = (i: number) => update({ googleModels: config.googleModels.filter((_, j) => j !== i) });
   const addOrModel = () => { const m = newOrModel.trim(); if (m && !config.openrouterModels.includes(m)) { update({ openrouterModels: [...config.openrouterModels, m] }); setNewOrModel(''); } };
   const removeOrModel = (i: number) => update({ openrouterModels: config.openrouterModels.filter((_, j) => j !== i) });
+  const addSambaModel = () => { const m = newSambaModel.trim(); if (m && !config.sambaModels.includes(m)) { update({ sambaModels: [...config.sambaModels, m] }); setNewSambaModel(''); } };
+  const removeSambaModel = (i: number) => update({ sambaModels: config.sambaModels.filter((_, j) => j !== i) });
 
   const updateTheme = (mode: ThemeMode) => { const t: ThemeConfig = { mode }; update({ theme: t }); applyThemeToDOM(t); };
 
@@ -455,7 +471,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
   const exportData = useCallback((type: 'all' | 'chats' | 'keys') => {
     const data: Record<string, unknown> = { exportedAt: new Date().toISOString(), version: 4, app: 'DophyAI' };
     if (type === 'all' || type === 'chats') data.sessions = sessions;
-    if (type === 'all' || type === 'keys') data.config = { googleKeys: config.googleKeys, openrouterKey: config.openrouterKey, systemPrompt: config.systemPrompt, googleModels: config.googleModels, openrouterModels: config.openrouterModels, theme: config.theme, includeTime: config.includeTime, includeDate: config.includeDate, memories: config.memories };
+    if (type === 'all' || type === 'keys') data.config = { googleKeys: config.googleKeys, openrouterKey: config.openrouterKey, sambaKey: config.sambaKey, systemPrompt: config.systemPrompt, googleModels: config.googleModels, openrouterModels: config.openrouterModels, sambaModels: config.sambaModels, theme: config.theme, includeTime: config.includeTime, includeDate: config.includeDate, memories: config.memories };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `dophy-${type}-${new Date().toISOString().slice(0, 10)}.json`;
@@ -479,9 +495,11 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
           const nc = { ...config };
           if (Array.isArray(data.config.googleKeys)) { const nk = data.config.googleKeys.filter((k: string) => !config.googleKeys.includes(k)); if (nk.length) { nc.googleKeys = [...config.googleKeys, ...nk]; imported.push(`${nk.length} API keys`); } }
           if (typeof data.config.openrouterKey === 'string' && data.config.openrouterKey) { nc.openrouterKey = data.config.openrouterKey; imported.push('OR key'); }
+          if (typeof data.config.sambaKey === 'string' && data.config.sambaKey) { nc.sambaKey = data.config.sambaKey; imported.push('Samba key'); }
           if (typeof data.config.systemPrompt === 'string') { nc.systemPrompt = data.config.systemPrompt; imported.push('prompt'); }
           if (Array.isArray(data.config.googleModels)) { const nm = data.config.googleModels.filter((m: string) => !config.googleModels.includes(m)); if (nm.length) { nc.googleModels = [...config.googleModels, ...nm]; imported.push(`${nm.length} Google models`); } }
           if (Array.isArray(data.config.openrouterModels)) { const nm = data.config.openrouterModels.filter((m: string) => !config.openrouterModels.includes(m)); if (nm.length) { nc.openrouterModels = [...config.openrouterModels, ...nm]; imported.push(`${nm.length} OR models`); } }
+          if (Array.isArray(data.config.sambaModels)) { const nm = data.config.sambaModels.filter((m: string) => !config.sambaModels.includes(m)); if (nm.length) { nc.sambaModels = [...config.sambaModels, ...nm]; imported.push(`${nm.length} Samba models`); } }
           if (data.config.theme && data.config.theme.mode) { nc.theme = { mode: data.config.theme.mode }; applyThemeToDOM(nc.theme); imported.push('theme'); }
           if (typeof data.config.includeTime === 'boolean') { nc.includeTime = data.config.includeTime; }
           if (typeof data.config.includeDate === 'boolean') { nc.includeDate = data.config.includeDate; }
@@ -556,7 +574,24 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
               <div className="border-t border-[var(--c-border)]" />
               <div>
                 <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]"><IconDeepSeek className="w-4 h-4 text-emerald-400" /> OpenRouter Key</label>
+                {!config.openrouterKey && (
+                  <div className="mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-400 flex items-start gap-2">
+                    <IconKey className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>Get a free API key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline font-medium">openrouter.ai/keys</a></span>
+                  </div>
+                )}
                 <input type="text" value={config.openrouterKey} onChange={e => update({ openrouterKey: e.target.value })} placeholder="sk-or-..." className="w-full rounded-lg border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 py-2.5 text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none focus:border-[var(--c-accent-border)] font-mono" />
+              </div>
+              <div className="border-t border-[var(--c-border)]" />
+              <div>
+                <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]"><IconSamba className="w-4 h-4 text-orange-400" /> SambaNova Key</label>
+                {!config.sambaKey && (
+                  <div className="mb-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 text-xs text-orange-400 flex items-start gap-2">
+                    <IconKey className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>Get a free API key at <a href="https://cloud.sambanova.ai/apis" target="_blank" rel="noopener noreferrer" className="underline font-medium">cloud.sambanova.ai</a></span>
+                  </div>
+                )}
+                <input type="text" value={config.sambaKey} onChange={e => update({ sambaKey: e.target.value })} placeholder="api key..." className="w-full rounded-lg border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 py-2.5 text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none focus:border-[var(--c-accent-border)] font-mono" />
               </div>
             </div>
           )}
@@ -581,6 +616,25 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
                 <div className="mt-2 flex gap-2">
                   <input type="text" value={newGoogleModel} onChange={e => setNewGoogleModel(e.target.value)} onKeyDown={e => e.key === 'Enter' && addGoogleModel()} placeholder="gemini-..." className="flex-1 rounded-lg border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 py-2.5 text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none focus:border-[var(--c-accent-border)]" />
                   <button onClick={addGoogleModel} className="flex items-center gap-1.5 rounded-lg bg-[var(--c-accent)] px-3 py-2.5 text-sm font-medium text-white hover:opacity-90 active:scale-95 touch-manipulation"><IconPlus className="w-3.5 h-3.5" /></button>
+                </div>
+              </div>
+              <div className="border-t border-[var(--c-border)]" />
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]"><IconSamba className="w-4 h-4 text-orange-400" /> SambaNova <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">{config.sambaModels.length}</span></label>
+                  <button onClick={() => update({ sambaModels: [...DEFAULT_SAMBA_MODELS] })} className="rounded-lg border border-[var(--c-border)] px-2.5 py-1 text-[10px] text-[var(--c-text3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text2)] active:scale-95 touch-manipulation">Reset</button>
+                </div>
+                <div className="space-y-1">
+                  {config.sambaModels.map((m, i) => (
+                    <div key={i} className="group flex items-center gap-2 rounded-lg bg-[var(--c-surface)] px-3 py-2.5">
+                      <span className="flex-1 truncate text-sm text-[var(--c-text)]">{m}</span>
+                      <button onClick={() => removeSambaModel(i)} className="rounded p-1.5 text-[var(--c-text3)] transition-all hover:bg-red-500/20 hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100 active:scale-95 touch-manipulation"><IconTrash className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <input type="text" value={newSambaModel} onChange={e => setNewSambaModel(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSambaModel()} placeholder="Model-Name" className="flex-1 rounded-lg border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 py-2.5 text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none focus:border-[var(--c-accent-border)]" />
+                  <button onClick={addSambaModel} className="flex items-center gap-1.5 rounded-lg bg-[var(--c-accent)] px-3 py-2.5 text-sm font-medium text-white hover:opacity-90 active:scale-95 touch-manipulation"><IconPlus className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
               <div className="border-t border-[var(--c-border)]" />
@@ -637,7 +691,6 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
           {/* ====== Prompt ====== */}
           {tab === 'prompt' && (
             <div className="space-y-6">
-              {/* System Prompt */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="text-sm font-semibold text-[var(--c-text)]">System Instructions</label>
@@ -649,7 +702,6 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
 
               <div className="border-t border-[var(--c-border)]" />
 
-              {/* Context: Date & Time Toggles */}
               <div>
                 <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]">
                   <IconClockLg className="w-4 h-4 text-[var(--c-accent-t)]" />
@@ -676,7 +728,6 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
 
               <div className="border-t border-[var(--c-border)]" />
 
-              {/* Memory */}
               <div>
                 <label className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]">
                   <IconBrain className="w-4 h-4 text-violet-400" />
@@ -757,7 +808,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
                 <div className="space-y-2">
                   <button onClick={() => exportData('all')} className="flex w-full items-center gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] px-4 py-3 text-sm text-[var(--c-text2)] transition-all hover:border-[var(--c-accent-border)] hover:bg-[var(--c-accent-bg)] active:scale-[0.98] touch-manipulation">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--c-accent-bg)] shrink-0"><IconDownload className="w-4 h-4 text-[var(--c-accent-t)]" /></div>
-                    <div className="text-left min-w-0"><p className="font-medium text-[var(--c-text)]">Full Backup</p><p className="text-xs text-[var(--c-text3)] truncate">{sessions.length} chats · {config.googleKeys.length} keys · {config.memories.length} memories</p></div>
+                    <div className="text-left min-w-0"><p className="font-medium text-[var(--c-text)]">Full Backup</p><p className="text-xs text-[var(--c-text3)] truncate">{sessions.length} chats · {config.memories.length} memories</p></div>
                   </button>
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => exportData('chats')} className="flex items-center gap-2 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] px-3 py-2.5 text-xs font-medium text-[var(--c-text3)] hover:bg-[var(--c-surface-h)] hover:text-[var(--c-text2)] active:scale-[0.98] touch-manipulation"><IconChat className="w-3.5 h-3.5" /> Chats only</button>
@@ -777,7 +828,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-red-400"><IconTrash className="w-4 h-4" /> Danger Zone</h3>
                 <div className="space-y-2">
                   <button onClick={() => { if (confirm('Delete ALL chats?')) { setSessions([]); saveSessions([]); setActiveSessionId(null); saveActiveId(null); setImportStatus('All chats deleted'); setTimeout(() => setImportStatus(null), 3000); } }} className="flex w-full items-center gap-3 rounded-xl border border-red-500/10 bg-red-500/5 px-4 py-3 text-sm text-red-400 hover:border-red-500/30 hover:bg-red-500/10 active:scale-[0.98] touch-manipulation"><IconTrash className="w-4 h-4" />Delete all chats <span className="ml-auto text-xs opacity-60">{sessions.length}</span></button>
-                  <button onClick={() => { if (confirm('Reset ALL settings?')) { const def: AppConfig = { googleKeys: [], openrouterKey: '', systemPrompt: DEFAULT_SYSTEM_PROMPT, googleModels: [...DEFAULT_GOOGLE_MODELS], openrouterModels: [...DEFAULT_OPENROUTER_MODELS], theme: { ...DEFAULT_THEME }, includeTime: false, includeDate: false, memories: [] }; setConfig(def); saveConfig(def); applyThemeToDOM(def.theme); setImportStatus('Settings reset'); setTimeout(() => setImportStatus(null), 3000); } }} className="flex w-full items-center gap-3 rounded-xl border border-amber-500/10 bg-amber-500/5 px-4 py-3 text-sm text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 active:scale-[0.98] touch-manipulation"><IconSettings className="w-4 h-4" />Reset all settings</button>
+                  <button onClick={() => { if (confirm('Reset ALL settings?')) { const def: AppConfig = { googleKeys: [], openrouterKey: '', sambaKey: '', systemPrompt: DEFAULT_SYSTEM_PROMPT, googleModels: [...DEFAULT_GOOGLE_MODELS], openrouterModels: [...DEFAULT_OPENROUTER_MODELS], sambaModels: [...DEFAULT_SAMBA_MODELS], theme: { ...DEFAULT_THEME }, includeTime: false, includeDate: false, memories: [] }; setConfig(def); saveConfig(def); applyThemeToDOM(def.theme); setImportStatus('Settings reset'); setTimeout(() => setImportStatus(null), 3000); } }} className="flex w-full items-center gap-3 rounded-xl border border-amber-500/10 bg-amber-500/5 px-4 py-3 text-sm text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 active:scale-[0.98] touch-manipulation"><IconSettings className="w-4 h-4" />Reset all settings</button>
                 </div>
               </div>
             </div>
@@ -814,6 +865,7 @@ function SettingsPanel({ open, onClose, config, setConfig, logs, clearLogs, sess
 const AUTO_ITEMS = [
   { key: 'auto-gemini-flash', icon: IconZap, color: 'amber', bg: 'bg-amber-500/15', activeText: 'text-amber-300', iconActive: 'text-amber-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-amber-500/10', activeBorder: 'border-amber-500/20' },
   { key: 'auto-gemini-pro', icon: IconCrown, color: 'violet', bg: 'bg-violet-500/15', activeText: 'text-violet-300', iconActive: 'text-violet-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-violet-500/10', activeBorder: 'border-violet-500/20' },
+  { key: 'auto-samba', icon: IconRocket, color: 'orange', bg: 'bg-orange-500/15', activeText: 'text-orange-300', iconActive: 'text-orange-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-orange-500/10', activeBorder: 'border-orange-500/20' },
   { key: 'auto-openrouter', icon: IconShuffle, color: 'emerald', bg: 'bg-emerald-500/15', activeText: 'text-emerald-300', iconActive: 'text-emerald-400', iconInactive: 'text-[var(--c-text3)]', activeBg: 'bg-emerald-500/10', activeBorder: 'border-emerald-500/20' },
 ];
 
@@ -864,7 +916,7 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
               <IconWand className="w-3.5 h-3.5" /> Automatic
               <IconChevron className={`w-3 h-3 ml-auto transition-transform duration-200 ${autoOpen ? '' : '-rotate-90'}`} />
             </button>
-            <div className={`overflow-hidden transition-all duration-300 ${autoOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className={`overflow-hidden transition-all duration-300 ${autoOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
               <div className="mt-1 space-y-1 pb-2">
                 {AUTO_ITEMS.map(item => {
                   const Ic = item.icon;
@@ -902,7 +954,7 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
               <IconChip className="w-3.5 h-3.5" /> Models
               <IconChevron className={`w-3 h-3 ml-auto transition-transform duration-200 ${modelsOpen ? '' : '-rotate-90'}`} />
             </button>
-            <div className={`overflow-hidden transition-all duration-300 ${modelsOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className={`overflow-hidden transition-all duration-300 ${modelsOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
               <div className="mt-1 space-y-0.5 pb-1">
                 {config.googleModels.length > 0 && (
                   <div className="mb-2">
@@ -914,6 +966,21 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
                           <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${active ? 'bg-[var(--c-accent)]' : 'bg-[var(--c-text4)]'}`} />
                           <span className="flex-1 truncate font-medium">{m}</span>
                           {isImageCapableModel(m) && <span className="shrink-0 rounded bg-violet-500/20 px-1 py-0.5 text-[9px] font-bold text-violet-400">IMG</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {config.sambaModels.length > 0 && (
+                  <div className="mb-2">
+                    <div className="mb-1 flex items-center gap-2 px-2"><IconSamba className="w-3 h-3 text-orange-400" /><span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--c-text4)]">SambaNova</span></div>
+                    {config.sambaModels.map(m => {
+                      const active = selectedModel === m;
+                      return (
+                        <button key={m} onClick={() => { onSelectModel(m); onClose(); }} className={`mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] transition-all touch-manipulation ${active ? 'bg-[var(--c-accent-bg)] text-[var(--c-accent-t)]' : 'text-[var(--c-text2)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text)] active:bg-[var(--c-surface-h)]'}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${active ? 'bg-[var(--c-accent)]' : 'bg-[var(--c-text4)]'}`} />
+                          <span className="flex-1 truncate font-medium">{m}</span>
+                          <span className="shrink-0 rounded bg-orange-500/20 px-1 py-0.5 text-[9px] font-bold text-orange-400">FAST</span>
                         </button>
                       );
                     })}
@@ -934,7 +1001,7 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
                     })}
                   </div>
                 )}
-                {config.googleModels.length === 0 && config.openrouterModels.length === 0 && (
+                {config.googleModels.length === 0 && config.openrouterModels.length === 0 && config.sambaModels.length === 0 && (
                   <p className="px-3 py-4 text-center text-xs text-[var(--c-text3)]">No models. Add in Settings.</p>
                 )}
               </div>
@@ -1006,12 +1073,87 @@ function Sidebar({ open, onClose, selectedModel, onSelectModel, config, sessions
 }
 
 // =============================================================================
+// Extra Icons for errors & thinking
+// =============================================================================
+function IconShield({ className = 'w-5 h-5' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></svg>;
+}
+function IconRefresh({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>;
+}
+
+// =============================================================================
+// Think tag parser
+// =============================================================================
+function parseThinkContent(content: string): { thinking: string; response: string; isThinkingPhase: boolean } {
+  if (!content) return { thinking: '', response: '', isThinkingPhase: false };
+
+  const openTag = '<think>';
+  const closeTag = '</think>';
+
+  const openIdx = content.indexOf(openTag);
+  if (openIdx === -1) {
+    return { thinking: '', response: content, isThinkingPhase: false };
+  }
+
+  const afterOpen = openIdx + openTag.length;
+  const closeIdx = content.indexOf(closeTag, afterOpen);
+
+  if (closeIdx === -1) {
+    // Still inside <think> tag (streaming)
+    const thinking = content.slice(afterOpen);
+    const before = content.slice(0, openIdx).trim();
+    return { thinking: thinking.trim(), response: before, isThinkingPhase: true };
+  }
+
+  const thinking = content.slice(afterOpen, closeIdx).trim();
+  const before = content.slice(0, openIdx).trim();
+  const after = content.slice(closeIdx + closeTag.length).trim();
+  const response = [before, after].filter(Boolean).join('\n\n');
+  return { thinking, response, isThinkingPhase: false };
+}
+
+function isVPNLocationError(content: string): boolean {
+  return /location is not supported|FAILED_PRECONDITION/i.test(content);
+}
+
+// =============================================================================
+// Streaming dots
+// =============================================================================
+function StreamingDots({ label = 'Thinking...' }: { label?: string }) {
+  return (
+    <div className="flex items-center gap-2 text-[var(--c-text3)] py-1">
+      <div className="flex gap-1">
+        {[0, 150, 300].map(d => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--c-accent)]" style={{ animationDelay: `${d}ms` }} />)}
+      </div>
+      <span className="text-xs">{label}</span>
+    </div>
+  );
+}
+
+// =============================================================================
 // Message Bubble
 // =============================================================================
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry?: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [thinkExpanded, setThinkExpanded] = useState(false);
   const isUser = message.role === 'user';
-  const handleCopy = () => { navigator.clipboard.writeText(message.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); };
+  const handleCopy = () => {
+    // Copy without think tags
+    const parsed = parseThinkContent(message.content);
+    const textToCopy = parsed.response || message.content;
+    navigator.clipboard.writeText(textToCopy).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
+  // Parse think tags for assistant messages
+  const parsed = !isUser ? parseThinkContent(message.content) : null;
+  const isActivelyThinking = !isUser && message.isStreaming === true && parsed?.isThinkingPhase === true;
+  const hasThinking = !isUser && parsed && parsed.thinking.length > 0;
+
+  // Error state
+  const isError = !isUser && message.isError === true;
+  const isVpn = isError && isVPNLocationError(message.content);
+  const errorText = isError ? message.content.replace(/^Error:\s*/i, '') : '';
 
   return (
     <div className="group flex gap-2.5 sm:gap-3 px-3 py-2 sm:px-6 sm:py-3">
@@ -1023,6 +1165,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <span className="text-xs font-semibold text-[var(--c-text2)]">{isUser ? 'You' : (message.model ? getModelShortName(message.model) : 'DophyAI')}</span>
           <span className="text-[10px] text-[var(--c-text4)]">{new Date(message.timestamp).toLocaleTimeString()}</span>
         </div>
+        {/* User images */}
         {message.images && message.images.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
             {message.images.map((img, i) => <img key={i} src={img} alt="" className="h-20 sm:h-32 rounded-lg border border-[var(--c-border)] object-cover" />)}
@@ -1030,17 +1173,106 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         )}
         {isUser ? (
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--c-text)]">{message.content}</p>
+        ) : isError ? (
+          /* ==================== Error Display ==================== */
+          <div className="space-y-3">
+            {isVpn ? (
+              <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
+                    <IconShield className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-blue-400 mb-1.5">VPN Required</p>
+                    <p className="text-xs text-[var(--c-text2)] leading-relaxed mb-3">
+                      Your current location is not supported by this API. Please enable a VPN and connect to a supported region.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {['🇺🇸 USA', '🇩🇪 Germany', '🇳🇱 Netherlands', '🇬🇧 UK', '🇯🇵 Japan', '🇸🇬 Singapore'].map(r => (
+                        <span key={r} className="rounded-md bg-blue-500/10 border border-blue-500/10 px-2 py-1 text-[11px] font-medium text-blue-300">{r}</span>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-[var(--c-text3)] leading-relaxed">
+                      Enable a VPN service, select one of the regions above, then tap <strong className="text-[var(--c-text2)]">Retry</strong> below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-3 sm:p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/10">
+                    <IconWarning className="w-4 h-4 text-red-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-red-400 mb-1">Request Failed</p>
+                    <p className="text-xs text-red-400/80 break-words leading-relaxed">{errorText}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                className="flex items-center gap-2 rounded-xl bg-[var(--c-accent)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90 active:scale-[0.97] touch-manipulation"
+              >
+                <IconRefresh className="w-4 h-4" />
+                Retry
+              </button>
+            )}
+          </div>
         ) : (
+          /* ==================== Normal Assistant Message ==================== */
           <div className="rounded-2xl bg-[var(--c-surface)] border border-[var(--c-border)] px-3 py-2.5 sm:px-4 sm:py-3">
             <div className="prose-custom text-sm leading-relaxed text-[var(--c-text2)]">
               {message.isStreaming && !message.content ? (
-                <div className="flex items-center gap-2 text-[var(--c-text3)] py-1">
-                  <div className="flex gap-1">
-                    {[0, 150, 300].map(d => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--c-accent)]" style={{ animationDelay: `${d}ms` }} />)}
-                  </div>
-                  <span className="text-xs">Thinking...</span>
-                </div>
-              ) : <MarkdownContent content={message.content} />}
+                <StreamingDots />
+              ) : (
+                <>
+                  {/* Thinking collapsible */}
+                  {hasThinking && (
+                    <div className="mb-3">
+                      <button
+                        onClick={() => setThinkExpanded(!thinkExpanded)}
+                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 -ml-2 text-xs transition-colors hover:bg-[var(--c-surface-h)] active:scale-[0.98] touch-manipulation"
+                      >
+                        <div className={`flex h-5 w-5 items-center justify-center rounded-md ${isActivelyThinking ? 'bg-violet-500/20' : 'bg-[var(--c-surface-h)]'}`}>
+                          <IconBrain className={`w-3 h-3 ${isActivelyThinking ? 'text-violet-400' : 'text-[var(--c-text3)]'}`} />
+                        </div>
+                        <span className={`font-medium ${isActivelyThinking ? 'text-violet-400' : 'text-[var(--c-text3)]'}`}>
+                          {isActivelyThinking ? 'Thinking...' : 'Thoughts'}
+                        </span>
+                        {isActivelyThinking && (
+                          <div className="flex gap-1 ml-0.5">
+                            {[0, 150, 300].map(d => <span key={d} className="h-1 w-1 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: `${d}ms` }} />)}
+                          </div>
+                        )}
+                        {!isActivelyThinking && (
+                          <IconChevron className={`w-3 h-3 text-[var(--c-text4)] transition-transform duration-200 ${thinkExpanded ? '' : '-rotate-90'}`} />
+                        )}
+                      </button>
+                      {(isActivelyThinking || thinkExpanded) && (
+                        <div className="mt-2 rounded-xl border border-violet-500/10 bg-[var(--c-bg2)] px-3 py-2.5 text-xs text-[var(--c-text3)] leading-relaxed max-h-80 overflow-y-auto think-block">
+                          <MarkdownContent content={parsed!.thinking} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Response content */}
+                  {(!parsed?.isThinkingPhase || !message.isStreaming) && (
+                    parsed?.response ? (
+                      <MarkdownContent content={parsed.response} />
+                    ) : (
+                      message.isStreaming && !parsed?.isThinkingPhase && hasThinking ? (
+                        <StreamingDots label="Generating response..." />
+                      ) : !hasThinking ? (
+                        <MarkdownContent content={message.content} />
+                      ) : null
+                    )
+                  )}
+                </>
+              )}
             </div>
             {message.responseImages && message.responseImages.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -1049,7 +1281,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             )}
           </div>
         )}
-        {!isUser && message.content && !message.isStreaming && (
+        {/* Copy button — only for non-error assistant messages */}
+        {!isUser && !isError && message.content && !message.isStreaming && (
           <button onClick={handleCopy} className="mt-1 sm:mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-[var(--c-text4)] transition-all hover:bg-[var(--c-surface)] hover:text-[var(--c-text2)] sm:opacity-0 sm:group-hover:opacity-100 active:scale-95 touch-manipulation">
             {copied ? <><IconCheck className="w-3 h-3 text-emerald-400" />Copied</> : <><IconCopy className="w-3 h-3" />Copy</>}
           </button>
@@ -1081,7 +1314,7 @@ export function App() {
 
   const activeSession = sessions.find(s => s.id === activeSessionId) || null;
   const messages = activeSession?.messages || [];
-  const hasKeys = config.googleKeys.length > 0 || !!config.openrouterKey;
+  const hasKeys = config.googleKeys.length > 0 || !!config.openrouterKey || !!config.sambaKey;
 
   const swipeHandlers = useSwipe(
     () => { if (!settingsOpen) setSidebarOpen(true); },
@@ -1122,6 +1355,23 @@ export function App() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          const r = new FileReader();
+          r.onload = ev => { setAttachedImages(p => [...p, ev.target?.result as string]); };
+          r.readAsDataURL(file);
+        }
+      }
+    }
+  }, []);
+
   const handleStop = useCallback(() => { if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; } }, []);
 
   const handleSend = useCallback(async (e?: FormEvent) => {
@@ -1131,10 +1381,16 @@ export function App() {
     if (isLoading) return;
 
     const needsGoogle = isGoogleModel(selectedModel);
-    const needsOR = !needsGoogle;
+    const needsSamba = isSambaModel(selectedModel);
+    const needsOR = !needsGoogle && !needsSamba;
 
     if (needsGoogle && config.googleKeys.length === 0) {
       addLog({ timestamp: Date.now(), level: 'error', message: 'No Google API keys configured. Open Settings.' });
+      setSettingsOpen(true);
+      return;
+    }
+    if (needsSamba && !config.sambaKey) {
+      addLog({ timestamp: Date.now(), level: 'error', message: 'No SambaNova API key configured. Open Settings.' });
       setSettingsOpen(true);
       return;
     }
@@ -1168,7 +1424,6 @@ export function App() {
       const cur = sessions.find(s => s.id === sid);
       const hist = [...(cur?.messages || []), userMsg].slice(-20);
 
-      // Build effective config with system prompt enriched by time/date/memories
       const effectiveSystemPrompt = buildEffectiveSystemPrompt(config);
       const effectiveConfig = { ...config, systemPrompt: effectiveSystemPrompt };
 
@@ -1182,13 +1437,77 @@ export function App() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       if (!msg.includes('abort')) addLog({ timestamp: Date.now(), level: 'error', message: msg });
-      setSessions(p => p.map(s => { if (s.id === sid) { const m = [...s.messages]; const l = m[m.length - 1]; if (l?.role === 'assistant') m[m.length - 1] = { ...l, content: l.content || `Error: ${msg}`, isStreaming: false }; return { ...s, messages: m }; } return s; }));
+      setSessions(p => p.map(s => { if (s.id === sid) { const m = [...s.messages]; const l = m[m.length - 1]; if (l?.role === 'assistant') { const hasContent = !!l.content; m[m.length - 1] = { ...l, content: l.content || `Error: ${msg}`, isStreaming: false, isError: !hasContent }; } return { ...s, messages: m }; } return s; }));
     } finally {
       setIsLoading(false); abortRef.current = null;
     }
   }, [input, attachedImages, isLoading, activeSessionId, sessions, selectedModel, config, addLog]);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }, [handleSend]);
+  const handleRetry = useCallback(() => {
+    if (!activeSessionId || isLoading) return;
+
+    const session = sessions.find(s => s.id === activeSessionId);
+    if (!session || session.messages.length < 2) return;
+
+    const lastMsg = session.messages[session.messages.length - 1];
+    if (lastMsg.role !== 'assistant' || !lastMsg.isError) return;
+
+    const sid = activeSessionId;
+
+    // Replace the error message with a new streaming message
+    const newAssistMsg: ChatMessage = { id: uid(), role: 'assistant', content: '', model: selectedModel, timestamp: Date.now(), isStreaming: true };
+    setSessions(p => p.map(s => {
+      if (s.id === sid) {
+        const m = [...s.messages];
+        m[m.length - 1] = newAssistMsg;
+        return { ...s, messages: m };
+      }
+      return s;
+    }));
+
+    setIsLoading(true);
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    // History = all messages except the last error one
+    const hist = session.messages.slice(0, -1).slice(-20);
+
+    const effectiveSystemPrompt = buildEffectiveSystemPrompt(config);
+    const effectiveConfig = { ...config, systemPrompt: effectiveSystemPrompt };
+
+    generateResponse(hist, selectedModel, effectiveConfig,
+      (chunk) => { setSessions(p => p.map(s => { if (s.id === sid) { const m = [...s.messages]; const l = m[m.length - 1]; if (l?.role === 'assistant') m[m.length - 1] = { ...l, content: l.content + chunk }; return { ...s, messages: m }; } return s; })); },
+      () => { setSessions(p => p.map(s => { if (s.id === sid) { const m = [...s.messages]; const l = m[m.length - 1]; if (l?.role === 'assistant') m[m.length - 1] = { ...l, content: '' }; return { ...s, messages: m }; } return s; })); },
+      addLog, ac.signal
+    ).then(result => {
+      setSessions(p => p.map(s => { if (s.id === sid) { const m = [...s.messages]; const l = m[m.length - 1]; if (l?.role === 'assistant') m[m.length - 1] = { ...l, content: result.text || l.content, responseImages: result.images.length > 0 ? result.images : undefined, isStreaming: false }; return { ...s, messages: m, updatedAt: Date.now() }; } return s; }));
+    }).catch(err => {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      if (!msg.includes('abort')) addLog({ timestamp: Date.now(), level: 'error', message: msg });
+      setSessions(p => p.map(s => { if (s.id === sid) { const m = [...s.messages]; const l = m[m.length - 1]; if (l?.role === 'assistant') { const hasContent = !!l.content; m[m.length - 1] = { ...l, content: l.content || `Error: ${msg}`, isStreaming: false, isError: !hasContent }; } return { ...s, messages: m }; } return s; }));
+    }).finally(() => {
+      setIsLoading(false);
+      abortRef.current = null;
+    });
+  }, [activeSessionId, sessions, isLoading, selectedModel, config, addLog]);
+
+  const isMobile = useCallback(() => {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768;
+  }, []);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      if (isMobile()) {
+        // On mobile: Enter = newline (default behavior), no special handling needed
+        return;
+      }
+      // On PC: Enter = send, Shift+Enter = newline
+      if (!e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    }
+  }, [handleSend, isMobile]);
   const handleInputChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => { setInput(e.target.value); const el = e.target; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 160) + 'px'; }, []);
 
   const dotColor = getModelDotColor(selectedModel);
@@ -1240,7 +1559,7 @@ export function App() {
                 <DophyLogoBig />
               </div>
               <h1 className="mb-2 text-xl sm:text-2xl font-semibold text-[var(--c-text)]">DophyAI</h1>
-              <p className="mb-6 sm:mb-8 max-w-md text-center text-xs sm:text-sm text-[var(--c-text3)]">Your AI assistant — Google Gemini & DeepSeek</p>
+              <p className="mb-6 sm:mb-8 max-w-md text-center text-xs sm:text-sm text-[var(--c-text3)]">Your AI assistant — Google Gemini, SambaNova & DeepSeek</p>
               <div className="mb-4 flex items-center gap-2 text-[10px] text-[var(--c-text4)] lg:hidden">
                 <IconSwipe className="w-4 h-4" />
                 <span>Swipe from left edge for sidebar</span>
@@ -1260,13 +1579,19 @@ export function App() {
             </div>
           ) : (
             <div className="mx-auto max-w-3xl">
-              {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
+              {messages.map((msg, idx) => (
+                <MessageBubble
+                  key={msg.id}
+                  message={msg}
+                  onRetry={msg.isError && idx === messages.length - 1 && !isLoading ? handleRetry : undefined}
+                />
+              ))}
               <div ref={messagesEndRef} className="h-4" />
             </div>
           )}
         </div>
 
-        {/* Input — buttons aligned to same Y as input */}
+        {/* Input */}
         <div className="border-t border-[var(--c-border)] bg-[var(--c-bg)] input-safe-bottom">
           <div className="mx-auto max-w-3xl px-2 sm:px-4 py-2 sm:py-3">
             {attachedImages.length > 0 && (
@@ -1295,6 +1620,7 @@ export function App() {
                   value={input}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
                   placeholder="Message DophyAI..."
                   rows={1}
                   className="w-full resize-none rounded-xl border border-[var(--c-border)] bg-[var(--c-input-bg)] px-3 sm:px-4 py-[9px] sm:py-[11px] text-sm text-[var(--c-text)] placeholder-[var(--c-text3)] outline-none transition-all focus:border-[var(--c-accent-border)] focus:ring-1 focus:ring-[var(--c-accent-glow)]"
@@ -1323,7 +1649,9 @@ export function App() {
             </form>
             <p className="mt-1.5 text-center text-[10px] sm:text-[11px] text-[var(--c-text4)]">
               <span className="hidden sm:inline">{getModelShortName(selectedModel)} · </span>
-              Shift+Enter for new line
+              <span className="hidden sm:inline">Shift+Enter for new line · </span>
+              <span className="sm:hidden">Tap button to send · </span>
+              Paste images from clipboard
             </p>
           </div>
         </div>

@@ -1,5 +1,5 @@
 // =============================================================================
-// API Layer — Google Gemini + OpenRouter (with auto-modes and key rotation)
+// API Layer — Google Gemini + OpenRouter + SambaNova (with auto-modes and key rotation)
 // =============================================================================
 
 export type ThemeMode = 'dark' | 'light';
@@ -15,6 +15,7 @@ export interface ChatMessage {
   model?: string;
   timestamp: number;
   isStreaming?: boolean;
+  isError?: boolean;
 }
 
 export interface ChatSession {
@@ -29,9 +30,11 @@ export interface ChatSession {
 export interface AppConfig {
   googleKeys: string[];
   openrouterKey: string;
+  sambaKey: string;
   systemPrompt: string;
   googleModels: string[];
   openrouterModels: string[];
+  sambaModels: string[];
   theme: ThemeConfig;
   includeTime: boolean;
   includeDate: boolean;
@@ -51,7 +54,7 @@ export interface LogEntry {
 export interface AutoModeConfig {
   label: string;
   description: string;
-  provider: 'google' | 'openrouter';
+  provider: 'google' | 'openrouter' | 'sambanova';
   models: string[];
 }
 
@@ -82,6 +85,17 @@ export const AUTO_MODES: Record<string, AutoModeConfig> = {
     provider: 'openrouter',
     models: [],
   },
+  'auto-samba': {
+    label: 'SambaNova',
+    description: 'Fast inference · auto-fallback',
+    provider: 'sambanova',
+    models: [
+      'DeepSeek-R1-0528',
+      'DeepSeek-V3.1',
+      'DeepSeek-V3-0324',
+      'gpt-oss-120b',
+    ],
+  },
 };
 
 export function isAutoMode(model: string): boolean {
@@ -105,8 +119,16 @@ export const DEFAULT_OPENROUTER_MODELS = [
   'tngtech/deepseek-r1t2-chimera:free',
 ];
 
+export const DEFAULT_SAMBA_MODELS = [
+  'DeepSeek-R1-0528',
+  'DeepSeek-V3-0324',
+  'DeepSeek-V3.1',
+  'gpt-oss-120b',
+];
+
 export const DEFAULT_GOOGLE_KEYS: string[] = [];
 export const DEFAULT_OPENROUTER_KEY = '';
+export const DEFAULT_SAMBA_KEY = '';
 export const DEFAULT_THEME: ThemeConfig = { mode: 'dark' };
 
 export const DEFAULT_SYSTEM_PROMPT = `ПРАВИЛА ОФОРМЛЕНИЯ:
@@ -164,6 +186,12 @@ export function isGoogleModel(model: string): boolean {
   return model.startsWith('gemini');
 }
 
+export function isSambaModel(model: string): boolean {
+  if (isAutoMode(model)) return AUTO_MODES[model].provider === 'sambanova';
+  // SambaNova models: DeepSeek-*, gpt-oss-*
+  return /^(DeepSeek-|gpt-oss-)/.test(model);
+}
+
 export function isImageCapableModel(model: string): boolean {
   return model.includes('image');
 }
@@ -172,6 +200,7 @@ export function getModelShortName(model: string): string {
   if (model === 'auto-gemini-flash') return 'Auto: Flash';
   if (model === 'auto-gemini-pro') return 'Auto: Pro';
   if (model === 'auto-openrouter') return 'Auto: OpenRouter';
+  if (model === 'auto-samba') return 'Auto: Samba';
   if (model.includes('/')) return model.split('/').pop()?.replace(':free', '') || model;
   return model;
 }
@@ -180,7 +209,9 @@ export function getModelDotColor(model: string): string {
   if (model === 'auto-gemini-flash') return 'bg-amber-400';
   if (model === 'auto-gemini-pro') return 'bg-violet-400';
   if (model === 'auto-openrouter') return 'bg-emerald-400';
+  if (model === 'auto-samba') return 'bg-orange-400';
   if (isGoogleModel(model)) return 'bg-blue-400';
+  if (isSambaModel(model)) return 'bg-orange-400';
   return 'bg-emerald-400';
 }
 
@@ -205,14 +236,24 @@ function toGeminiContents(messages: ChatMessage[]) {
 }
 
 function toOpenAIMessages(messages: ChatMessage[], systemPrompt: string) {
-  const result: { role: string; content: string }[] = [
+  const result: { role: string; content: unknown }[] = [
     { role: 'system', content: systemPrompt }
   ];
   for (const msg of messages) {
-    result.push({
-      role: msg.role === 'assistant' ? 'assistant' : 'user',
-      content: msg.content,
-    });
+    // If message has images, use multimodal content format
+    if (msg.role === 'user' && msg.images && msg.images.length > 0) {
+      const content: { type: string; text?: string; image_url?: { url: string } }[] = [];
+      content.push({ type: 'text', text: msg.content || 'Describe this image' });
+      for (const img of msg.images) {
+        content.push({ type: 'image_url', image_url: { url: img } });
+      }
+      result.push({ role: 'user', content });
+    } else {
+      result.push({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content,
+      });
+    }
   }
   return result;
 }
@@ -430,6 +471,74 @@ export async function callOpenRouter(
 }
 
 // =============================================================================
+// SambaNova Streaming (OpenAI-compatible API)
+// =============================================================================
+
+const SAMBA_BASE_URL = 'https://api.sambanova.ai/v1';
+
+export async function callSambaNovaStreaming(
+  messages: ChatMessage[],
+  model: string,
+  apiKey: string,
+  systemPrompt: string,
+  onChunk: (text: string) => void,
+  addLog: (entry: LogEntry) => void,
+  signal?: AbortSignal
+): Promise<{ text: string; images: string[] }> {
+  if (!apiKey) {
+    throw new Error('No SambaNova API key. Go to Settings → API Keys.');
+  }
+
+  addLog({ timestamp: Date.now(), level: 'info', message: `→ SambaNova [${model}]` });
+
+  const response = await fetch(`${SAMBA_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: toOpenAIMessages(messages, systemPrompt),
+      stream: true,
+    }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`SambaNova ${response.status}: ${errorText.slice(0, 200)}`);
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  let buf = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+        try {
+          const data = JSON.parse(line.slice(6));
+          const chunk = data.choices?.[0]?.delta?.content;
+          if (chunk) { fullText += chunk; onChunk(chunk); }
+        } catch { /* skip */ }
+      }
+    }
+  }
+
+  addLog({ timestamp: Date.now(), level: 'info', message: `← SambaNova OK (${fullText.length} chars)` });
+  return { text: fullText, images: [] };
+}
+
+// =============================================================================
 // Auto Mode — tries models in priority order with fallback
 // =============================================================================
 
@@ -452,6 +561,12 @@ async function callAutoMode(
     if (modelsToTry.length === 0) {
       throw new Error('No OpenRouter models configured. Add models in Settings → Models.');
     }
+  } else if (autoConfig.provider === 'sambanova') {
+    // Use the auto mode's prioritized model list
+    modelsToTry = [...autoConfig.models];
+    if (modelsToTry.length === 0) {
+      throw new Error('No SambaNova models configured.');
+    }
   } else {
     modelsToTry = [...autoConfig.models];
   }
@@ -473,6 +588,11 @@ async function callAutoMode(
         return await callGeminiStreaming(
           messages, modelName, config.googleKeys, config.systemPrompt,
           onChunk, onResetContent, addLog, signal
+        );
+      } else if (autoConfig.provider === 'sambanova') {
+        return await callSambaNovaStreaming(
+          messages, modelName, config.sambaKey, config.systemPrompt,
+          onChunk, addLog, signal
         );
       } else {
         return await callOpenRouter(
@@ -519,6 +639,8 @@ export async function generateResponse(
 
   if (isGoogleModel(model)) {
     return callGeminiStreaming(messages, model, config.googleKeys, config.systemPrompt, onChunk, onResetContent, addLog, signal);
+  } else if (isSambaModel(model)) {
+    return callSambaNovaStreaming(messages, model, config.sambaKey, config.systemPrompt, onChunk, addLog, signal);
   } else {
     return callOpenRouter(messages, model, config.openrouterKey, config.systemPrompt, onChunk, addLog, signal);
   }

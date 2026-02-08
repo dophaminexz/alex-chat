@@ -249,6 +249,18 @@ textarea::placeholder {
   overflow-y: hidden;
 }
 
+/* Think block styling */
+.think-block .prose-custom p {
+  margin: 0.25rem 0;
+  color: var(--c-text3);
+}
+.think-block .prose-custom strong {
+  color: var(--c-text2);
+}
+.think-block .prose-custom em {
+  color: var(--c-text3);
+}
+
 /* =============================================================================
    Mobile-specific
    ============================================================================= */
